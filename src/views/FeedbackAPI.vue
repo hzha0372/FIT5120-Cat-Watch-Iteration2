@@ -44,7 +44,15 @@
       responsiveLayout="scroll"
       sortMode="single"
       class="p-datatable-gridlines"
+      ref="dt"
     >
+      <template #header>
+        <div class="text-end pb-4">
+          <Button icon="pi pi-external-link" label="Export CSV" @click="exportCSV" class="mr-2" />
+          <Button icon="pi pi-file-pdf" label="Export PDF" @click="exportPDF" />
+        </div>
+      </template>
+
       <Column field="participantName" header="Participant Name" sortable>
         <template #header>
           <InputText
@@ -97,6 +105,9 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import InputText from 'primevue/inputtext'
+import Button from 'primevue/button'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 // ---------------- State ----------------
 const feedbacks = ref([])
@@ -168,7 +179,31 @@ const submitFeedback = async () => {
   }
 }
 
-const applyFilters = () => {} // 触发 computed
+const applyFilters = () => {}
+
+// ---------------- Export Functions ----------------
+const dt = ref(null)
+
+const exportCSV = () => {
+  dt.value.exportCSV()
+}
+
+const exportPDF = () => {
+  const doc = new jsPDF()
+  doc.text('Feedbacks Report', 14, 10)
+  autoTable(doc, {
+    head: [['Participant Name', 'Program Name', 'Rating', 'Feedback']],
+    body: filteredFeedbacks.value.map((f) => [
+      f.participantName,
+      f.programName,
+      f.rating,
+      f.feedback,
+    ]),
+    startY: 20,
+  })
+
+  doc.save('feedbacks.pdf')
+}
 
 onMounted(fetchFeedbacks)
 </script>

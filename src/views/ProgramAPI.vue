@@ -41,7 +41,15 @@
       responsiveLayout="scroll"
       sortMode="single"
       class="p-datatable-gridlines"
+      ref="dt"
     >
+      <template #header>
+        <div class="text-end pb-4">
+          <Button icon="pi pi-external-link" label="Export CSV" @click="exportCSV" class="mr-2" />
+          <Button icon="pi pi-file-pdf" label="Export PDF" @click="exportPDF" />
+        </div>
+      </template>
+
       <Column field="name" header="Program Name" sortable>
         <template #header>
           <InputText
@@ -94,6 +102,9 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import InputText from 'primevue/inputtext'
+import Button from 'primevue/button'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 // ---------------- State ----------------
 const programs = ref([])
@@ -156,13 +167,32 @@ const submitProgram = async () => {
   }
 }
 
-const applyFilters = () => {} // 触发 computed
+const applyFilters = () => {}
+
+// ---------------- Export Functions ----------------
+const dt = ref(null)
+
+const exportCSV = () => {
+  dt.value.exportCSV()
+}
+
+const exportPDF = () => {
+  const doc = new jsPDF()
+  doc.text('Programs Report', 14, 10)
+  autoTable(doc, {
+    head: [['Program Name', 'Category', 'Location', 'Target Age']],
+    body: filteredPrograms.value.map((p) => [p.name, p.category, p.location, p.targetAge]),
+    startY: 20,
+  })
+
+  doc.save('programs.pdf')
+}
 
 onMounted(fetchPrograms)
 </script>
 
 <style scoped>
-/* 保持原来的样式不变 */
+/* 保持原样式 */
 .program-form {
   display: flex;
   flex-direction: column;
