@@ -34,7 +34,6 @@ const logout = () => {
 </template>
 
 <style scoped>
-/* Navbar 样式 */
 header {
   line-height: 1.5;
   display: flex;
@@ -47,10 +46,9 @@ header {
   font-weight: bold;
 }
 
-/* 横排导航 */
 .nav-links {
   display: flex;
-  gap: 16px; /* 横向间距 */
+  gap: 16px;
   flex-wrap: wrap;
 }
 
@@ -73,7 +71,6 @@ button.nav-link {
   padding: 0;
 }
 
-/* 响应式 */
 @media (max-width: 768px) {
   .nav-links {
     flex-direction: column;

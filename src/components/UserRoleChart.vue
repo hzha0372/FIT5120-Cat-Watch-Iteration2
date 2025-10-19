@@ -19,7 +19,6 @@ export default {
     this.draw()
   },
   methods: {
-    // ✅ 加载用户角色数据
     async loadData() {
       const snap = await getDocs(collection(db, 'users'))
       const rows = snap.docs.map((d) => d.data())
@@ -35,7 +34,6 @@ export default {
         .sort((a, b) => d3.descending(a.count, b.count))
     },
 
-    // ✅ 绘制图表
     draw() {
       const data = this.processed
       const margin = { top: 24, right: 16, bottom: 56, left: 48 }

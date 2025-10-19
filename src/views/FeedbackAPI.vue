@@ -132,18 +132,16 @@ import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import FirestoreBarChart from '@/components/FirestoreBarChart.vue' // ✅ 导入图表组件
+import FirestoreBarChart from '@/components/FirestoreBarChart.vue'
 
-// 🔹 数据与状态
 const feedbacks = ref([])
 const newFeedback = ref({ participantName: '', programName: '', rating: '', feedback: '' })
 const participantNameError = ref('')
 const programNameError = ref('')
 const ratingError = ref('')
 const feedbackError = ref('')
-const chartRef = ref(null) // ✅ 图表组件引用
+const chartRef = ref(null) //
 
-// 🔹 过滤逻辑
 const filters = reactive({ participantName: '', programName: '', rating: '', feedback: '' })
 const filteredFeedbacks = computed(() =>
   feedbacks.value.filter(
@@ -157,7 +155,6 @@ const filteredFeedbacks = computed(() =>
   ),
 )
 
-// 🔹 获取反馈
 const fetchFeedbacks = async () => {
   try {
     const res = await fetch(
@@ -169,7 +166,6 @@ const fetchFeedbacks = async () => {
   }
 }
 
-// 🔹 提交反馈
 const submitFeedback = async () => {
   participantNameError.value = programNameError.value = ratingError.value = feedbackError.value = ''
 
@@ -193,14 +189,13 @@ const submitFeedback = async () => {
       body: JSON.stringify(newFeedback.value),
     })
     newFeedback.value = { participantName: '', programName: '', rating: '', feedback: '' }
-    await fetchFeedbacks() // ✅ 刷新 DataTable
-    await chartRef.value?.loadData() // ✅ 刷新 D3 图表
+    await fetchFeedbacks()
+    await chartRef.value?.loadData()
   } catch (err) {
     console.error('Failed to add feedback:', err)
   }
 }
 
-// 🔹 导出相关
 const applyFilters = () => {}
 const dt = ref(null)
 const exportCSV = () => dt.value.exportCSV()

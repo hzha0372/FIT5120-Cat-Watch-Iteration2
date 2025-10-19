@@ -5,7 +5,6 @@
     <div v-if="users.length">
       <p>Select recipients:</p>
 
-      <!-- 用户复选框 -->
       <div
         v-for="(u, i) in users"
         :key="i"
@@ -15,7 +14,6 @@
         <label :for="u.email">{{ u.email }} ({{ u.role }})</label>
       </div>
 
-      <!-- 主题 -->
       <div style="margin-top: 20px">
         <label for="subject">Subject:</label><br />
         <input
@@ -26,7 +24,6 @@
         />
       </div>
 
-      <!-- 内容 -->
       <div style="margin-top: 20px">
         <label for="message">Message:</label><br />
         <textarea
@@ -62,7 +59,6 @@ const message = ref('We’re glad to have you join our community.')
 const loading = ref(false)
 const result = ref('')
 
-// 读取 Firestore 用户
 const fetchUsers = async () => {
   try {
     const snap = await getDocs(collection(db, 'users'))
@@ -72,7 +68,6 @@ const fetchUsers = async () => {
   }
 }
 
-// 发送批量邮件
 const sendEmail = async () => {
   if (selected.value.length === 0) {
     alert('Select at least one recipient.')

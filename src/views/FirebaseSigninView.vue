@@ -59,25 +59,19 @@ const auth = getAuth()
 const router = useRouter()
 
 const submitForm = async () => {
-  // 清空错误
   emailError.value = ''
   passwordError.value = ''
 
-  // 基本验证
   if (email.value === '') emailError.value = 'Please enter your email.'
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value))
     emailError.value = 'Please enter a valid email address.'
 
   if (password.value === '') passwordError.value = 'Please enter your password.'
 
-  // 如果没错误
   if (emailError.value === '' && passwordError.value === '') {
     try {
-      // Firebase Auth 登录
       const userCredential = await signInWithEmailAndPassword(auth, email.value, password.value)
       const userEmail = userCredential.user.email
-
-      // 🔹 从 Firestore 获取角色
       const snap = await getDocs(collection(db, 'users'))
       const allUsers = snap.docs.map((d) => d.data())
       const currentUser = allUsers.find((u) => u.email === userEmail)
@@ -87,18 +81,16 @@ const submitForm = async () => {
         return
       }
 
-      const role = currentUser.role || 'teen' // 默认给个role
+      const role = currentUser.role || 'teen'
       localStorage.setItem('userRole', role)
       isAuthenticated.value = true
 
-      // 加入表格展示
       users.value.push({
         email: email.value,
         password: password.value,
         role: role,
       })
 
-      // 🔸 根据角色跳转
       if (role === 'admin') router.push('/AdminDashboard')
       else if (role === 'staff') router.push('/StaffPage')
       else router.push('/TeenPage')

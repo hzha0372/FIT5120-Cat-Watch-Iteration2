@@ -11,9 +11,7 @@ import db from '@/firebase/init'
 
 export default {
   name: 'FirestoreBarChart',
-  props: {
-    // 可选：传 program 名称过滤之类的
-  },
+  props: {},
   data() {
     return { raw: [], processed: [] }
   },

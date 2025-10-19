@@ -1,5 +1,4 @@
 /* global process */
-// functions/index.js
 import * as functions from 'firebase-functions'
 import admin from 'firebase-admin'
 import cors from 'cors'
@@ -12,7 +11,7 @@ admin.initializeApp()
 const db = admin.firestore()
 const corsHandler = cors({ origin: true })
 
-// ---------------- Feedback ----------------
+// Feedback
 
 export const getFeedbacks = functions.https.onRequest((req, res) => {
   corsHandler(req, res, async () => {
@@ -43,7 +42,7 @@ export const addFeedback = functions.https.onRequest((req, res) => {
   })
 })
 
-// ---------------- SendGrid Bulk Email ----------------
+//  SendGrid Bulk Email
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY)
 

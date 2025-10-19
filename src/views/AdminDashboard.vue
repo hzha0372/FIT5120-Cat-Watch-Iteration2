@@ -2,7 +2,6 @@
   <div style="max-width: 1000px; margin: 24px auto">
     <h2 style="text-align: center; margin-bottom: 24px">Admin Dashboard</h2>
 
-    <!-- 📊 概览统计 -->
     <section
       style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px"
     >
@@ -24,7 +23,6 @@
       </div>
     </section>
 
-    <!-- 👥 用户角色分布图 -->
     <div style="margin-top: 60px">
       <h3 style="text-align: center; margin-bottom: 16px">User Role Distribution</h3>
       <UserRoleChart />
@@ -52,7 +50,6 @@ export default {
   },
   async mounted() {
     try {
-      // 🔹 统计 users
       const us = await getDocs(collection(db, 'users'))
       const rows = us.docs.map((d) => d.data())
       this.totals.users = rows.length
