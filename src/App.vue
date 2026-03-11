@@ -14,7 +14,7 @@ const logout = () => {
   <div>
     <!-- Navbar -->
     <header class="navbar bg-light px-3" role="navigation" aria-label="Main navigation">
-      <a class="navbar-brand">Youth Mental Health</a>
+      <a class="navbar-brand">Sun Safety Awareness</a>
       <nav class="nav-links">
         <router-link to="/" class="nav-link">Home</router-link>
         <router-link to="/FireLogin" class="nav-link">Firebase Login</router-link>
@@ -23,6 +23,7 @@ const logout = () => {
         <router-link to="/BulkEmail" class="nav-link">Bulk Email</router-link>
         <router-link to="/FeedbackAPI" class="nav-link">FeedbackAPI</router-link>
         <router-link to="/GeminiChat" class="nav-link">Gemini Chat</router-link>
+        <router-link to="/SunSafety" class="nav-link">Sun Safety</router-link>
       </nav>
     </header>
 
