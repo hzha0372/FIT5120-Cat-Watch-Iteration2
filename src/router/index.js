@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import FirebaseSigninView from '../views/FirebaseSigninView.vue'
 import FirebaseRegisterView from '../views/FirebaseRegisterView.vue'
-import TeenPage from '../views/TeenPage.vue'
+import SunSafetyDashboard from '../views/SunSafetyDashboard.vue'
 import DoctorPage from '@/views/DoctorPage.vue'
 import FeedbackAPI from '@/views/FeedbackAPI.vue'
 import AccessDenied from '@/views/AccessDenied.vue'
@@ -24,8 +24,8 @@ const routes = [
     component: FirebaseRegisterView,
   },
   {
-    path: '/TeenPage',
-    component: TeenPage,
+    path: '/SunSafety',
+    component: SunSafetyDashboard,
   },
   {
     path: '/DoctorPage',
