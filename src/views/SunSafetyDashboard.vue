@@ -93,6 +93,14 @@ const uvRiskLevel = (value) => {
   return 'Extreme (11+)'
 }
 
+const uvDescriptor = (value) => {
+  if (value <= 2) return 'Low'
+  if (value <= 5) return 'Moderate'
+  if (value <= 7) return 'High'
+  if (value <= 10) return 'Very High'
+  return 'Extreme'
+}
+
 const uvWarningContent = computed(() => {
   if (!uvResult.value) {
     return {
@@ -107,7 +115,7 @@ const uvWarningContent = computed(() => {
 
   if (uv >= 11) {
     return {
-      title: 'Critical UV Warning',
+      title: `${uvDescriptor(uv)} UV Warning`,
       main: 'CRITICAL: Severe burning in under 15 mins - seek shade NOW.',
       shortTerm: 'Severe burning in under 15 mins - immediate protection needed.',
       longTerm: 'Extreme risk of melanoma and permanent skin aging.',
@@ -116,7 +124,7 @@ const uvWarningContent = computed(() => {
 
   if (uv >= 8) {
     return {
-      title: 'Urgent UV Warning',
+      title: `${uvDescriptor(uv)} UV Warning`,
       main: 'URGENT: 15 mins max before damage - protect yourself immediately.',
       shortTerm: 'Skin damage starts immediately, burning within minutes.',
       longTerm: 'High risk of DNA damage and skin cancer over time.',
@@ -125,7 +133,7 @@ const uvWarningContent = computed(() => {
 
   if (uv >= 6) {
     return {
-      title: 'High UV Warning',
+      title: `${uvDescriptor(uv)} UV Warning`,
       main: 'You have about 15 mins - find shade or apply sunscreen now.',
       shortTerm: 'Skin will begin burning after 15 mins of exposure.',
       longTerm: 'Repeated burning leads to permanent skin damage and higher cancer risk.',
@@ -133,7 +141,7 @@ const uvWarningContent = computed(() => {
   }
 
   return {
-    title: 'Moderate UV Warning',
+    title: `${uvDescriptor(uv)} UV Warning`,
     main: 'You have 15-20 mins before skin starts to burn - time to prepare.',
     shortTerm: 'Skin may start to redden after 15 mins of exposure.',
     longTerm: 'Regular exposure increases risk of premature aging.',
@@ -260,6 +268,10 @@ const useCurrentLocation = () => {
 }
 
 const useMapLocation = async () => {
+  if (!mapboxToken) {
+    errorMessage.value = 'Mapbox token missing. Set VITE_MAPBOX_TOKEN to enable map search.'
+    return
+  }
   const { lng, lat } = mapLocation.value.center || {}
   if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
     errorMessage.value = 'Map location is unavailable. Please move the map and try again.'
@@ -285,6 +297,10 @@ const useMapLocation = async () => {
 }
 
 const searchByPostcode = async () => {
+  if (!mapboxToken) {
+    errorMessage.value = 'Mapbox token missing. Set VITE_MAPBOX_TOKEN to enable postcode search.'
+    return
+  }
   if (!/^\d{4}$/.test(postcode.value)) {
     errorMessage.value = 'Please enter a valid 4-digit Australian postcode.'
     return
