@@ -12,7 +12,12 @@ import AdminDashboard from '@/views/AdminDashboard.vue'
 const routes = [
   {
     path: '/',
+    redirect: '/SunSafety',
+  },
+  {
+    path: '/Home',
     component: HomeView,
+    alias: ['/home'],
   },
   {
     path: '/FireLogin',
