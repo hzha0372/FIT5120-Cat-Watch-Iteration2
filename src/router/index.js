@@ -9,7 +9,6 @@ import AccessDenied from '@/views/AccessDenied.vue'
 import isAuthenticated from '@/authenticate'
 import BulkEmail from '@/views/BulkEmail.vue'
 import AdminDashboard from '@/views/AdminDashboard.vue'
-import GeminiChat from '@/views/GeminiChat.vue'
 const routes = [
   {
     path: '/',
@@ -44,10 +43,6 @@ const routes = [
   {
     path: '/AdminDashboard',
     component: AdminDashboard,
-  },
-  {
-    path: '/GeminiChat',
-    component: GeminiChat,
   },
   {
     path: '/AccessDenied',

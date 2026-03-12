@@ -22,7 +22,6 @@ const logout = () => {
         <button v-if="isAuthenticated" class="nav-link" @click="logout">Logout</button>
         <router-link to="/BulkEmail" class="nav-link">Bulk Email</router-link>
         <router-link to="/FeedbackAPI" class="nav-link">FeedbackAPI</router-link>
-        <router-link to="/GeminiChat" class="nav-link">Gemini Chat</router-link>
         <router-link to="/SunSafety" class="nav-link">Sun Safety</router-link>
       </nav>
     </header>
