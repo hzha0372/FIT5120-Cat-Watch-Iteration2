@@ -48,7 +48,7 @@ router.beforeEach((to, from, next) => {
   const currentRole = localStorage.getItem('userRole')
 
   if (to.path.toLowerCase() === '/login' && isAuthenticated.value) {
-    next('/SunSafety')
+    next('/Home')
     return
   }
 

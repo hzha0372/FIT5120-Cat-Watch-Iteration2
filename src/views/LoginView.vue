@@ -51,7 +51,7 @@ const onSubmit = async () => {
   if (username.value === 'sunsafety' && password.value === '1234') {
     setAuthenticated(true)
 
-    const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/SunSafety'
+    const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/Home'
     await router.replace(redirectTo)
     return
   }
