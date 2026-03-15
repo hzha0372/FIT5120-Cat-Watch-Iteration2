@@ -90,6 +90,66 @@
             Current UV context: <strong>{{ uvSummary ? uvSummary.peakUv : '—' }}</strong>
             <span v-if="uvSummary">({{ riskLabel }})</span>
           </div>
+
+          <!-- Sunscreen Reminder Panel -->
+          <div class="reminder-panel" aria-label="Sunscreen reapply reminder">
+            <div class="reminder-header">
+              <div class="reminder-header-left">
+                <div class="reminder-title">Reapply Reminder</div>
+                <div class="reminder-desc">Select your activity to get a timed reminder.</div>
+              </div>
+              <button
+                class="toggle-btn"
+                :class="{ 'toggle-btn--on': reminderEnabled }"
+                @click="toggleReminder"
+                :aria-pressed="reminderEnabled"
+                aria-label="Toggle reapply reminder"
+              >
+                {{ reminderEnabled ? 'ON' : 'OFF' }}
+              </button>
+            </div>
+
+            <div class="activity-row">
+              <label
+                v-for="opt in activityOptions"
+                :key="opt.value"
+                class="activity-option"
+                :class="{ 'activity-option--active': activity === opt.value }"
+              >
+                <input type="radio" v-model="activity" :value="opt.value" class="sr-only" />
+                <span class="activity-icon">{{ opt.icon }}</span>
+                <span class="activity-name">{{ opt.label }}</span>
+              </label>
+            </div>
+
+            <div v-if="reminderEnabled" class="reminder-body">
+              <div class="reminder-info-box">
+                <div class="ri-interval">Every <strong>{{ reminderIntervalMinutes }} min</strong></div>
+                <div class="ri-reason">{{ reminderReason }}</div>
+              </div>
+              <div class="reminder-countdown-box">
+                <div class="countdown-label">Next reminder in</div>
+                <div class="countdown-value" :class="{ 'countdown-value--urgent': reminderCountdown <= 60 }">
+                  {{ countdownDisplay }}
+                </div>
+                <button class="reset-btn" @click="resetTimer">Reset</button>
+              </div>
+            </div>
+
+            <div
+              v-if="reminderFired"
+              class="reminder-toast"
+              role="alert"
+              aria-live="assertive"
+            >
+              <span class="toast-bell">🔔</span>
+              <div class="toast-content">
+                <div class="toast-title">Time to reapply sunscreen!</div>
+                <div class="toast-body">{{ reminderToastMessage }}</div>
+              </div>
+              <button class="toast-dismiss" @click="dismissReminder">Done</button>
+            </div>
+          </div>
         </section>
         <section class="card" aria-labelledby="clothing-uv-title">
           <div class="card-head">
@@ -205,6 +265,93 @@ const loading = ref(false)
 const errorMessage = ref('')
 
 const mapLocation = ref({ center: { lng: 144.9631, lat: -37.8136 }, zoom: 11 })
+
+// ── Sunscreen Reminder ────────────────────────────────────────────────────────
+const activityOptions = [
+  { value: 'normal', icon: '🚶', label: 'Normal / Dry' },
+  { value: 'sports', icon: '🏃', label: 'Sports / Sweating' },
+  { value: 'water',  icon: '🏊', label: 'Beach / Water' },
+]
+
+const activity = ref('normal')
+const reminderEnabled = ref(false)
+const reminderCountdown = ref(0)
+const reminderFired = ref(false)
+let _reminderInterval = null
+
+const reminderIntervalMinutes = computed(() => {
+  if (activity.value === 'water') return 40
+  if (activity.value === 'sports') return 60
+  return 120
+})
+
+const reminderReason = computed(() => {
+  if (activity.value === 'water')
+    return 'Water and towelling remove sunscreen quickly — reapply every 40 min.'
+  if (activity.value === 'sports')
+    return 'Sweating reduces sunscreen effectiveness — reapply every 60 min.'
+  return 'Standard recommendation: reapply every 2 hours.'
+})
+
+const countdownDisplay = computed(() => {
+  const m = Math.floor(reminderCountdown.value / 60)
+  const s = reminderCountdown.value % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+})
+
+const reminderToastMessage = computed(() => {
+  if (activity.value === 'water')
+    return 'After swimming or towelling off, reapply SPF50+ sunscreen to all exposed skin now.'
+  if (activity.value === 'sports')
+    return "You've been active and sweating. Apply a fresh coat of SPF50 sunscreen now."
+  return "It's been 2 hours. Reapply SPF50 sunscreen to all exposed skin."
+})
+
+const clearReminderTimer = () => {
+  if (_reminderInterval) {
+    clearInterval(_reminderInterval)
+    _reminderInterval = null
+  }
+}
+
+const startTimer = () => {
+  clearReminderTimer()
+  reminderFired.value = false
+  reminderCountdown.value = reminderIntervalMinutes.value * 60
+  _reminderInterval = setInterval(() => {
+    if (reminderCountdown.value > 0) {
+      reminderCountdown.value--
+    } else {
+      clearReminderTimer()
+      reminderFired.value = true
+    }
+  }, 1000)
+}
+
+const toggleReminder = () => {
+  reminderEnabled.value = !reminderEnabled.value
+  if (reminderEnabled.value) {
+    startTimer()
+  } else {
+    clearReminderTimer()
+    reminderFired.value = false
+  }
+}
+
+const resetTimer = () => {
+  reminderFired.value = false
+  startTimer()
+}
+
+const dismissReminder = () => {
+  reminderFired.value = false
+  startTimer()
+}
+
+watch(activity, () => {
+  if (reminderEnabled.value) startTimer()
+})
+// ─────────────────────────────────────────────────────────────────────────────
 
 const hourly = ref([])
 const chart = ref(null)
@@ -513,6 +660,7 @@ window.addEventListener('resize', resizeHandler)
 
 onBeforeUnmount(() => {
   if (resizeHandler) window.removeEventListener('resize', resizeHandler)
+  clearReminderTimer()
 })
 </script>
 
@@ -722,6 +870,208 @@ onBeforeUnmount(() => {
   margin-top: 12px;
   color: rgba(15, 23, 42, 0.75);
 }
+
+/* ── Sunscreen Reminder ──────────────────────────────────────────────── */
+.reminder-panel {
+  margin-top: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(14, 165, 233, 0.22);
+  background: rgba(14, 165, 233, 0.05);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.reminder-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.reminder-title {
+  font-weight: 900;
+  font-size: 1rem;
+}
+
+.reminder-desc {
+  color: rgba(15, 23, 42, 0.65);
+  font-size: 0.88rem;
+  margin-top: 2px;
+}
+
+.toggle-btn {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 18px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.12);
+  color: rgba(15, 23, 42, 0.6);
+  transition: background 0.2s, color 0.2s;
+}
+
+.toggle-btn--on {
+  background: #0ea5e9;
+  color: #ffffff;
+}
+
+.activity-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.activity-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(15, 23, 42, 0.14);
+  background: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  transition: border-color 0.15s, background 0.15s;
+  user-select: none;
+}
+
+.activity-option--active {
+  border-color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.1);
+  color: #0369a1;
+}
+
+.activity-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.reminder-body {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.reminder-info-box {
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+}
+
+.ri-interval {
+  font-size: 0.95rem;
+  color: rgba(15, 23, 42, 0.85);
+}
+
+.ri-reason {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: rgba(15, 23, 42, 0.65);
+}
+
+.reminder-countdown-box {
+  text-align: center;
+  padding: 10px 16px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+}
+
+.countdown-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.6);
+  margin-bottom: 2px;
+}
+
+.countdown-value {
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #0369a1;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown-value--urgent {
+  color: #dc2626;
+}
+
+.reset-btn {
+  margin-top: 6px;
+  border: none;
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.08);
+  color: rgba(15, 23, 42, 0.75);
+}
+
+.reset-btn:hover {
+  background: rgba(15, 23, 42, 0.14);
+}
+
+.reminder-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #fef9c3;
+  border: 1.5px solid #f59e0b;
+}
+
+.toast-bell {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.toast-content {
+  flex: 1;
+}
+
+.toast-title {
+  font-weight: 900;
+  color: #92400e;
+}
+
+.toast-body {
+  margin-top: 3px;
+  font-size: 0.9rem;
+  color: rgba(120, 53, 15, 0.9);
+}
+
+.toast-dismiss {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-weight: 800;
+  cursor: pointer;
+  background: #f59e0b;
+  color: #fff;
+}
+
+.toast-dismiss:hover {
+  background: #d97706;
+}
+/* ─────────────────────────────────────────────────────────────────────── */
+
 .uv-table {
   margin-top: 12px;
   border-radius: 14px;
