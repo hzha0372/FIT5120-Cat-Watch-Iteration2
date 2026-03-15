@@ -412,7 +412,7 @@ const clothingByUvLevel = computed(() => {
 
   return [
     buildRow(
-      'Low (0-2.9)',
+      'Low (0.0-2.9)',
       'Normal clothing is fine. Keep sunglasses and a hat ready for midday.',
       uv !== null && uv < 3.0,
     ),
