@@ -1,7 +1,17 @@
 <template>
   <main class="home-shell">
     <header class="hero">
-      <div>
+      <div class="hero-brand">
+        <div class="logo-mark" aria-hidden="true">
+          <div class="logo-sun"></div>
+        </div>
+        <div>
+          <div class="brand-name">SunSafe</div>
+          <div class="brand-tagline">See the sun. Plan the day.</div>
+        </div>
+      </div>
+
+      <div class="hero-copy">
         <h1 class="hero-title">Sun Safety Dashboard</h1>
         <p class="hero-subtitle">
           Click anywhere on the Melbourne map to see the UV level, what it means for your skin, and
@@ -29,9 +39,9 @@
             <div class="info-col">
               <div class="metric">
                 <div class="metric-label">Selected location UV (peak today)</div>
-                <div class="metric-value">{{ uvSummary ? uvSummary.peakUv : '—' }}</div>
+                <div class="metric-value">{{ uvSummary ? uvSummary.peakUv : '-' }}</div>
                 <div v-if="uvSummary" class="metric-sub">
-                  Peak time: {{ uvSummary.peakTime }} | Hours UV ≥ 3: {{ uvSummary.hoursUv3Plus }}
+                  Peak time: {{ uvSummary.peakTime }} | Hours UV >= 3: {{ uvSummary.hoursUv3Plus }}
                 </div>
               </div>
 
@@ -47,7 +57,7 @@
               </div>
               <div v-else class="placeholder">Click the map to load UV data.</div>
 
-              <p v-if="loading" class="status">Loading hourly UV…</p>
+              <p v-if="loading" class="status">Loading hourly UV...</p>
               <p v-else-if="errorMessage" class="error">{{ errorMessage }}</p>
             </div>
           </div>
@@ -82,12 +92,12 @@
             <div class="sunscreen-box">
               <div class="sunscreen-label">Reapply sooner if</div>
               <div class="sunscreen-value">Sweating / swimming</div>
-              <div class="sunscreen-detail">If you’re active or in water, reapply more frequently (and after towelling).</div>
+              <div class="sunscreen-detail">If you're active or in water, reapply more frequently (and after towelling).</div>
             </div>
           </div>
 
           <div class="sunscreen-note">
-            Current UV context: <strong>{{ uvSummary ? uvSummary.peakUv : '—' }}</strong>
+            Current UV context: <strong>{{ uvSummary ? uvSummary.peakUv : '-' }}</strong>
             <span v-if="uvSummary">({{ riskLabel }})</span>
           </div>
         </section>
@@ -109,6 +119,7 @@
               v-for="row in clothingByUvLevel"
               :key="row.label"
               class="uv-table__row"
+              :style="{ '--row-accent': row.accent, '--row-accent-soft': row.accentSoft }"
               role="row"
               :class="{ 'uv-table__row--active': row.isActive }"
             >
@@ -128,7 +139,7 @@
 
           <div class="qa">
             <details class="qa-item" open>
-              <summary class="qa-q">Myth: “I only need sunscreen at the beach.”</summary>
+              <summary class="qa-q">Myth: "I only need sunscreen at the beach."</summary>
               <div class="qa-a">
                 <p>
                   <strong>Fact:</strong> UV can be high on everyday errands, outdoor sports, and even on cooler or
@@ -142,24 +153,24 @@
             </details>
 
             <details class="qa-item">
-              <summary class="qa-q">Myth: “Only fair-skinned people need protection.”</summary>
+              <summary class="qa-q">Myth: "Only fair-skinned people need protection."</summary>
               <div class="qa-a">
                 <p>
                   <strong>Fact:</strong> All skin tones can experience UV damage. Darker skin may burn less often,
                   but UV can still cause long-term damage and skin cancer.
                 </p>
                 <p>
-                  <strong>Do this:</strong> Use sunscreen, protective clothing, and shade when UV is 3 or above—no
+                  <strong>Do this:</strong> Use sunscreen, protective clothing, and shade when UV is 3 or above-no
                   matter your skin tone.
                 </p>
               </div>
             </details>
 
             <details class="qa-item">
-              <summary class="qa-q">Myth: “Sunscreen prevents Vitamin D.”</summary>
+              <summary class="qa-q">Myth: "Sunscreen prevents Vitamin D."</summary>
               <div class="qa-a">
                 <p>
-                  <strong>Fact:</strong> You can still maintain Vitamin D while protecting your skin. If you’re
+                  <strong>Fact:</strong> You can still maintain Vitamin D while protecting your skin. If you're
                   concerned, talk to a health professional rather than skipping protection during high UV.
                 </p>
                 <p>
@@ -263,7 +274,7 @@ const uvSummary = computed(() => {
 
 const riskLabel = computed(() => {
   const uv = uvSummary.value?.peakUvNumber
-  if (!Number.isFinite(uv)) return '—'
+  if (!Number.isFinite(uv)) return '-'
   if (uv <= 2.9) return 'Low'
   if (uv <= 5.9) return 'Moderate'
   if (uv <= 7.9) return 'High'
@@ -296,7 +307,7 @@ const alertContent = computed(() => {
   if (uv >= 6) {
     return {
       title: 'High UV: limit exposure',
-      main: 'Use sunscreen, protective clothing, and shade—especially around midday.',
+      main: 'Use sunscreen, protective clothing, and shade-especially around midday.',
       shortTerm: 'Skin can start to burn if unprotected.',
       longTerm: 'Long-term exposure contributes to skin aging and cancer risk.',
     }
@@ -319,7 +330,7 @@ const alertContent = computed(() => {
 
 const alertClass = computed(() => {
   const uv = uvSummary.value?.peakUvNumber
-  if (!Number.isFinite(uv)) return ''
+  if (!Number.isFinite(uv)) return '-'
   if (uv <= 2.9) return 'alert--low'
   if (uv <= 5.9) return 'alert--moderate'
   if (uv <= 7.9) return 'alert--high'
@@ -365,10 +376,12 @@ const sunscreenTypeReason = computed(() => {
 
 const clothingByUvLevel = computed(() => {
   const uv = uvSummary.value?.peakUvNumber ?? null
-  const buildRow = (label, advice, isActive) => ({
+  const buildRow = (label, advice, isActive, accent, accentSoft) => ({
     label,
     advice,
     isActive,
+    accent,
+    accentSoft,
   })
 
   return [
@@ -376,30 +389,41 @@ const clothingByUvLevel = computed(() => {
       'Low (0.0-2.9)',
       'Normal clothing is fine. Keep sunglasses and a hat ready for midday.',
       uv !== null && uv < 3.0,
+      '#22c55e',
+      'rgba(34, 197, 94, 0.12)',
     ),
     buildRow(
       'Moderate (3.0-5.9)',
       'Long sleeves or light UPF layers, plus a broad-brim hat and sunglasses.',
       uv !== null && uv >= 3.0 && uv <= 5.9,
+      '#facc15',
+      'rgba(250, 204, 21, 0.14)',
     ),
     buildRow(
       'High (6.0-7.9)',
       'Tightly woven long sleeves and long pants with a broad-brim hat.',
       uv !== null && uv >= 6.0 && uv <= 7.9,
+      '#fb923c',
+      'rgba(251, 146, 60, 0.14)',
     ),
     buildRow(
       'Very High (8.0-10.9)',
       'UPF long sleeves or rash vest, long pants, and minimize time outdoors.',
       uv !== null && uv >= 8.0 && uv <= 10.9,
+      '#f97316',
+      'rgba(249, 115, 22, 0.16)',
     ),
     buildRow(
       'Extreme (11.0+)',
       'Full coverage UPF clothing, wide-brim hat, and avoid direct sun at peak hours.',
       uv !== null && uv >= 11.0,
+      '#ef4444',
+      'rgba(239, 68, 68, 0.16)',
     ),
   ]
 })
-const impactFeed = ref({ status: 'Waiting for dataset', peopleToday: '—' })
+
+const impactFeed = ref({ status: 'Waiting for dataset', peopleToday: '-' })
 
 const clearChart = () => {
   if (!chart.value) return
@@ -498,7 +522,6 @@ const drawChart = () => {
 
   g.append('g').call(d3.axisLeft(y).ticks(6))
 }
-
 watch(
   () => ({ lng: mapLocation.value.center.lng, lat: mapLocation.value.center.lat }),
   async ({ lng, lat }) => {
@@ -523,15 +546,70 @@ onBeforeUnmount(() => {
   padding: 22px;
   display: grid;
   gap: 16px;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(253, 224, 71, 0.18), transparent 45%),
+    radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.15), transparent 40%),
+    radial-gradient(circle at 20% 80%, rgba(34, 197, 94, 0.15), transparent 45%),
+    linear-gradient(180deg, #f8fbff 0%, #fff7ed 50%, #ffffff 100%);
 }
 
+
 .hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  align-items: center;
   border-radius: 18px;
   padding: 18px 20px;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(34, 197, 94, 0.08));
+  background:
+    radial-gradient(circle at top left, rgba(255, 245, 157, 0.75), transparent 55%),
+    radial-gradient(circle at 30% 80%, rgba(167, 243, 208, 0.7), transparent 55%),
+    linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(236, 72, 153, 0.12));
 }
 
+.hero-brand {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.logo-mark {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: #0f172a;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.3);
+}
+
+.logo-sun {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #fff3b0, #f59e0b 65%, #ea580c 100%);
+  box-shadow: 0 0 0 6px rgba(251, 191, 36, 0.25);
+}
+
+.brand-name {
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.brand-tagline {
+  color: rgba(15, 23, 42, 0.75);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.hero-copy {
+  max-width: 680px;
+}
 .hero-title {
   margin: 0;
   font-size: 2rem;
@@ -553,9 +631,9 @@ onBeforeUnmount(() => {
 
 .card {
   border-radius: 18px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
   padding: 16px;
 }
 
@@ -592,7 +670,7 @@ onBeforeUnmount(() => {
   border-radius: 14px;
   padding: 12px;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(15, 23, 42, 0.02);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.10), rgba(34, 197, 94, 0.08));
 }
 
 .metric-label {
@@ -636,20 +714,20 @@ onBeforeUnmount(() => {
 }
 
 .alert--low {
-  background: rgba(34, 197, 94, 0.10);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.14), rgba(16, 185, 129, 0.10));
 }
 
 .alert--moderate {
-  background: rgba(234, 179, 8, 0.12);
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.16), rgba(249, 115, 22, 0.10));
 }
 
 .alert--high {
-  background: rgba(249, 115, 22, 0.12);
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.18), rgba(244, 63, 94, 0.10));
 }
 
 .alert--veryhigh,
 .alert--extreme {
-  background: rgba(239, 68, 68, 0.10);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(190, 24, 93, 0.12));
 }
 
 .placeholder {
@@ -698,7 +776,7 @@ onBeforeUnmount(() => {
   border-radius: 14px;
   padding: 12px;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(15, 23, 42, 0.02);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(236, 72, 153, 0.08));
 }
 
 .sunscreen-label {
@@ -724,47 +802,68 @@ onBeforeUnmount(() => {
 }
 .uv-table {
   margin-top: 12px;
-  border-radius: 14px;
+  border-radius: 16px;
   border: 1px solid rgba(15, 23, 42, 0.12);
   overflow: hidden;
-  background: #ffffff;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(248, 250, 252, 0.98));
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
 }
 
 .uv-table__header,
 .uv-table__row {
-  display: grid;
-  grid-template-columns: minmax(160px, 210px) 1fr;
-  gap: 12px;
-  padding: 10px 12px;
-  align-items: start;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  color: rgba(15, 23, 42, 0.86);
+  position: relative;
+  padding: 14px 16px;
+  gap: 14px;
+  font-size: 1rem;
 }
-
 .uv-table__header {
-  background: rgba(15, 23, 42, 0.04);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.14), rgba(16, 185, 129, 0.10));
   font-weight: 800;
-  color: rgba(15, 23, 42, 0.85);
+  color: rgba(15, 23, 42, 0.9);
   border-bottom: 1px solid rgba(15, 23, 42, 0.12);
 }
 
 .uv-table__row {
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
   color: rgba(15, 23, 42, 0.85);
+  background: linear-gradient(90deg, var(--row-accent-soft, rgba(226, 232, 240, 0.4)), rgba(255, 255, 255, 0.92));
+  position: relative;
 }
-
 .uv-table__row:last-child {
   border-bottom: none;
 }
 
+
+.uv-table__row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: var(--row-accent, #e2e8f0);
+}
+
 .uv-table__row--active {
-  background: rgba(251, 191, 36, 0.22);
-  box-shadow: inset 3px 0 0 #f59e0b;
-  color: #4b2c00;
-  font-weight: 700;
+  background: linear-gradient(90deg, var(--row-accent-soft, rgba(251, 191, 36, 0.26)), rgba(255, 255, 255, 0.95));
+  box-shadow:
+    inset 10px 0 0 var(--row-accent, #f59e0b),
+    0 0 0 2px rgba(15, 23, 42, 0.08),
+    0 10px 18px rgba(15, 23, 42, 0.08);
+  color: #2b1a00;
+  font-weight: 800;
 }
 
 .uv-table__label {
   font-weight: 700;
   color: inherit;
+  font-size: 1.02rem;
+}
+
+.uv-table__text {
+  line-height: 1.5;
 }
 
 .sticky {
@@ -780,7 +879,7 @@ onBeforeUnmount(() => {
 .qa-item {
   border-radius: 14px;
   border: 1px solid rgba(15, 23, 42, 0.10);
-  background: rgba(15, 23, 42, 0.02);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(14, 165, 233, 0.08));
   padding: 10px 12px;
 }
 
@@ -820,7 +919,7 @@ onBeforeUnmount(() => {
   border-radius: 14px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   padding: 12px;
-  background: rgba(14, 165, 233, 0.06);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.14), rgba(16, 185, 129, 0.10));
 }
 
 .live-title {
@@ -864,5 +963,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-
-
