@@ -60,16 +60,239 @@
       </div>
     </section>
 
-    <section class="awareness-card" aria-labelledby="myth-title">
+    <!-- Monthly UV Comparison: Melbourne vs Sydney -->
+    <section class="awareness-card" aria-labelledby="uv-monthly-title">
       <div class="card-head">
-        <h2 id="myth-title" class="card-title">Myth or Fact (coming next)</h2>
+        <h2 id="uv-monthly-title" class="card-title">Monthly UV Levels: Melbourne vs Sydney (2024)</h2>
         <p class="card-caption">
-          Next we’ll connect your datasets here to show Australia UV impacts and debunk common myths
-          with live stats.
+          Average daytime UV index (7 am–5 pm) measured across 2024. Source: BoM UV monitoring stations.
+        </p>
+      </div>
+      <div class="uv-city-legend">
+        <span class="legend-dot" style="background:#0ea5e9"></span> Melbourne
+        <span class="legend-dot ml" style="background:#f97316"></span> Sydney
+        <span class="legend-note">UV ≥ 3: protection recommended</span>
+      </div>
+      <div ref="monthlyChart" class="chart-surface" aria-label="Monthly UV comparison chart"></div>
+    </section>
+
+    <!-- Melanoma Trend in Australia -->
+    <section class="awareness-card" aria-labelledby="melanoma-title">
+      <div class="card-head">
+        <h2 id="melanoma-title" class="card-title">Melanoma Incidence in Australia (1982–2019)</h2>
+        <p class="card-caption">
+          New melanoma cases per year by sex. Data: Australian Institute of Health and Welfare (AIHW).
+        </p>
+      </div>
+      <div class="melanoma-legend">
+        <span class="legend-dot" style="background:#0ea5e9"></span> Males
+        <span class="legend-dot ml" style="background:#f43f5e"></span> Females
+        <span class="legend-dot ml" style="background:#8b5cf6"></span> Persons (total)
+      </div>
+      <div ref="melanomaTrendChart" class="chart-surface" aria-label="Melanoma incidence trend chart"></div>
+      <div class="melanoma-stat-row">
+        <div class="mel-stat">
+          <div class="mel-stat-label">Cases in 1982</div>
+          <div class="mel-stat-value">7,070</div>
+        </div>
+        <div class="mel-stat">
+          <div class="mel-stat-label">Cases in 2019</div>
+          <div class="mel-stat-value">31,256</div>
+        </div>
+        <div class="mel-stat mel-stat--highlight">
+          <div class="mel-stat-label">Increase over 37 years</div>
+          <div class="mel-stat-value">+342%</div>
+        </div>
+        <div class="mel-stat">
+          <div class="mel-stat-label">Most affected group</div>
+          <div class="mel-stat-value">Males (58%)</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sun Protection Self-Check -->
+    <section class="awareness-card" aria-labelledby="suncheck-title">
+      <div class="card-head">
+        <h2 id="suncheck-title" class="card-title">Sun Protection Self-Check</h2>
+        <p class="card-caption">
+          Based on Australian sun protection behaviour surveys, tick what you actually do when outdoors during peak UV hours.
+        </p>
+      </div>
+      <div class="suncheck-grid">
+        <label
+          v-for="m in sunProtMeasures"
+          :key="m.code"
+          class="suncheck-item"
+          :class="{ 'suncheck-item--checked': sunProtChecked[m.code] }"
+        >
+          <input type="checkbox" v-model="sunProtChecked[m.code]" class="sr-only" />
+          <span class="suncheck-icon">{{ m.icon }}</span>
+          <span class="suncheck-label">{{ m.label }}</span>
+          <span class="suncheck-tick">✓</span>
+        </label>
+      </div>
+      <div class="suncheck-score-row" v-if="sunProtScore > 0">
+        <div class="suncheck-bar-wrap">
+          <div class="suncheck-bar" :style="{ width: sunProtScorePct + '%' }" :class="sunProtScoreClass"></div>
+        </div>
+        <div class="suncheck-score-label">
+          <strong>{{ sunProtScore }}/{{ sunProtMeasures.length }}</strong> measures used —
+          <span :class="sunProtScoreClass">{{ sunProtScoreText }}</span>
+        </div>
+      </div>
+      <div v-if="sunProtScore === 0" class="suncheck-placeholder">
+        Tick the measures above to see your coverage score.
+      </div>
+    </section>
+
+    <!-- Skin Tone & UV Sensitivity Section -->
+    <section class="awareness-card" aria-labelledby="skin-tone-title">
+      <div class="card-head">
+        <h2 id="skin-tone-title" class="card-title">Skin Tone &amp; UV Sensitivity</h2>
+        <p class="card-caption">
+          Select your skin tone (Fitzpatrick scale) to understand your personal UV risk and
+          recommended sun protection level.
         </p>
       </div>
 
-      <div class="placeholder-box">Dataset integration pending</div>
+      <div class="skin-swatches" role="radiogroup" aria-label="Select your skin tone">
+        <button
+          v-for="tone in skinTones"
+          :key="tone.type"
+          class="skin-swatch"
+          :class="{ 'skin-swatch--active': selectedSkinTone === tone.type }"
+          :style="{ background: tone.color }"
+          :aria-label="`Fitzpatrick Type ${tone.type}: ${tone.name}`"
+          :aria-pressed="selectedSkinTone === tone.type"
+          @click="selectedSkinTone = tone.type"
+        >
+          <span class="swatch-type">{{ tone.type }}</span>
+        </button>
+      </div>
+
+      <transition name="skin-info-fade">
+        <div v-if="activeSkinTone" class="skin-info-panel" :style="{ borderLeftColor: activeSkinTone.color }">
+          <div class="skin-info-top">
+            <div class="skin-color-dot" :style="{ background: activeSkinTone.color }"></div>
+            <div>
+              <div class="skin-type-label">Fitzpatrick Type {{ activeSkinTone.type }}</div>
+              <div class="skin-type-name">{{ activeSkinTone.name }}</div>
+            </div>
+            <div class="skin-sensitivity-badge" :class="`sensitivity--${activeSkinTone.sensitivityKey}`">
+              {{ activeSkinTone.sensitivity }}
+            </div>
+          </div>
+
+          <div class="skin-details-grid">
+            <div class="skin-detail-item">
+              <div class="detail-label">Burn tendency</div>
+              <div class="detail-value">{{ activeSkinTone.burnTendency }}</div>
+            </div>
+            <div class="skin-detail-item">
+              <div class="detail-label">Tan tendency</div>
+              <div class="detail-value">{{ activeSkinTone.tanTendency }}</div>
+            </div>
+            <div class="skin-detail-item">
+              <div class="detail-label">Recommended SPF</div>
+              <div class="detail-value">{{ activeSkinTone.spf }}</div>
+            </div>
+            <div class="skin-detail-item">
+              <div class="detail-label">Safe sun exposure</div>
+              <div class="detail-value">{{ activeSkinTone.safeExposure }}</div>
+            </div>
+          </div>
+
+          <div class="skin-advice">
+            <div class="skin-advice-title">Key advice for your skin tone</div>
+            <ul class="skin-advice-list">
+              <li v-for="tip in activeSkinTone.tips" :key="tip">{{ tip }}</li>
+            </ul>
+          </div>
+        </div>
+      </transition>
+
+      <div v-if="!selectedSkinTone" class="skin-placeholder">
+        Tap a skin tone above to see your personalised UV sensitivity guide.
+      </div>
+    </section>
+
+    <!-- Sun Safety Knowledge Quiz -->
+    <section class="awareness-card" aria-labelledby="quiz-title">
+      <div class="card-head">
+        <h2 id="quiz-title" class="card-title">Sun Safety Knowledge Quiz</h2>
+        <p class="card-caption">
+          Test what you know about sun safety — 5 questions with instant feedback.
+        </p>
+      </div>
+
+      <div v-if="!quizSubmitted">
+        <div
+          v-for="(q, qi) in quizQuestions"
+          :key="qi"
+          class="quiz-question"
+          :class="{ 'quiz-question--answered': quizAnswers[qi] !== null }"
+        >
+          <div class="quiz-q-text">
+            <span class="quiz-q-num">Q{{ qi + 1 }}</span>
+            {{ q.question }}
+          </div>
+          <div class="quiz-options">
+            <button
+              v-for="(opt, oi) in q.options"
+              :key="oi"
+              class="quiz-opt"
+              :class="{
+                'quiz-opt--selected': quizAnswers[qi] === oi,
+              }"
+              @click="quizAnswers[qi] = oi"
+            >
+              <span class="quiz-opt-letter">{{ String.fromCharCode(65 + oi) }}</span>
+              {{ opt }}
+            </button>
+          </div>
+        </div>
+
+        <div class="quiz-submit-row">
+          <span class="quiz-answered-count">{{ quizAnsweredCount }} / {{ quizQuestions.length }} answered</span>
+          <button
+            class="quiz-submit-btn"
+            :disabled="quizAnsweredCount < quizQuestions.length"
+            @click="submitQuiz"
+          >
+            Submit Quiz
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="quiz-results">
+        <div class="quiz-score-banner" :class="`quiz-score--${quizScoreClass}`">
+          <div class="quiz-score-num">{{ quizScore }} / {{ quizQuestions.length }}</div>
+          <div class="quiz-score-label">{{ quizScoreLabel }}</div>
+        </div>
+
+        <div class="quiz-review">
+          <div
+            v-for="(q, qi) in quizQuestions"
+            :key="qi"
+            class="quiz-review-item"
+            :class="quizAnswers[qi] === q.correct ? 'quiz-review--correct' : 'quiz-review--wrong'"
+          >
+            <div class="quiz-review-q">
+              <span class="quiz-review-icon">{{ quizAnswers[qi] === q.correct ? '✅' : '❌' }}</span>
+              <strong>Q{{ qi + 1 }}:</strong> {{ q.question }}
+            </div>
+            <div class="quiz-review-ans">
+              <span v-if="quizAnswers[qi] !== q.correct" class="quiz-your-ans">
+                Your answer: {{ q.options[quizAnswers[qi]] }}
+              </span>
+              <span class="quiz-correct-ans">Correct: {{ q.options[q.correct] }}</span>
+            </div>
+            <div class="quiz-explanation">{{ q.explanation }}</div>
+          </div>
+        </div>
+
+        <button class="quiz-retry-btn" @click="resetQuiz">Try Again</button>
+      </div>
     </section>
   </main>
 </template>
@@ -78,6 +301,121 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import * as d3 from 'd3'
 import Map from '@/components/Map.vue'
+
+// ── Skin Tone Selection ───────────────────────────────────────────────────────
+const selectedSkinTone = ref(null)
+
+const skinTones = [
+  {
+    type: 'I',
+    name: 'Very Fair / Pale White',
+    color: '#FDDAC4',
+    sensitivity: 'Extreme',
+    sensitivityKey: 'extreme',
+    burnTendency: 'Always burns',
+    tanTendency: 'Never tans',
+    spf: 'SPF50+ (mandatory)',
+    safeExposure: '5–10 min unprotected',
+    tips: [
+      'Apply SPF50+ 20 min before going outside and reapply every 2 hours.',
+      'Seek shade between 10 am–4 pm when UV is highest.',
+      'Wear UPF50+ clothing, wide-brim hat, and UV-blocking sunglasses.',
+      'Even brief cloud cover does not block UV — stay protected.',
+    ],
+  },
+  {
+    type: 'II',
+    name: 'Fair / White',
+    color: '#F5C5A3',
+    sensitivity: 'Very High',
+    sensitivityKey: 'veryhigh',
+    burnTendency: 'Usually burns',
+    tanTendency: 'Rarely tans',
+    spf: 'SPF50+',
+    safeExposure: '10–15 min unprotected',
+    tips: [
+      'Daily SPF50+ is essential, even on overcast days.',
+      'Reapply sunscreen after 2 hours, or after sweating or swimming.',
+      'Protective clothing significantly reduces your UV exposure.',
+      'Check the UV Index before outdoor activities — protect when UV ≥ 3.',
+    ],
+  },
+  {
+    type: 'III',
+    name: 'Medium / Light Brown',
+    color: '#E8A882',
+    sensitivity: 'High',
+    sensitivityKey: 'high',
+    burnTendency: 'Sometimes burns',
+    tanTendency: 'Gradually tans',
+    spf: 'SPF30–50+',
+    safeExposure: '15–20 min unprotected',
+    tips: [
+      'Use SPF30 minimum daily; SPF50+ during extended outdoor activities.',
+      'UV damage accumulates over time — tanning is a sign of damage.',
+      'Reapply sunscreen every 2 hours or after water/sweat exposure.',
+      'Wear a hat and sunglasses on high-UV days (UV ≥ 6).',
+    ],
+  },
+  {
+    type: 'IV',
+    name: 'Olive / Moderate Brown',
+    color: '#C68642',
+    sensitivity: 'Moderate',
+    sensitivityKey: 'moderate',
+    burnTendency: 'Rarely burns',
+    tanTendency: 'Tans easily',
+    spf: 'SPF30–50',
+    safeExposure: '20–30 min unprotected',
+    tips: [
+      'SPF30+ is recommended for extended time outdoors.',
+      'UV-induced damage and skin cancer risk are still real — melanin provides partial protection only.',
+      'Apply sunscreen on exposed skin for any UV ≥ 3 situation.',
+      'Skin cancer in darker skin is often diagnosed later — check your skin regularly.',
+    ],
+  },
+  {
+    type: 'V',
+    name: 'Brown / Dark Brown',
+    color: '#8D5524',
+    sensitivity: 'Low–Moderate',
+    sensitivityKey: 'low',
+    burnTendency: 'Very rarely burns',
+    tanTendency: 'Tans very easily',
+    spf: 'SPF15–30',
+    safeExposure: '30–40 min unprotected',
+    tips: [
+      'While burning is rare, UV damage and skin cancer risk still exist.',
+      'SPF15 at minimum; use SPF30 for prolonged sun exposure.',
+      'Regularly check for new or changing moles and spots.',
+      'Vitamin D production is still possible with shorter unprotected exposure.',
+    ],
+  },
+  {
+    type: 'VI',
+    name: 'Deeply Pigmented / Dark Brown–Black',
+    color: '#4A2912',
+    sensitivity: 'Low',
+    sensitivityKey: 'low',
+    burnTendency: 'Almost never burns',
+    tanTendency: 'Deeply pigmented always',
+    spf: 'SPF15+ recommended',
+    safeExposure: '40+ min unprotected',
+    tips: [
+      'High melanin content gives natural UV protection, but does NOT eliminate skin cancer risk.',
+      'UV damage including DNA mutation still occurs — sunscreen is still beneficial.',
+      'Regular skin checks are important as skin cancer may be harder to detect.',
+      'Consider SPF30 during extreme UV conditions (UV Index ≥ 11).',
+    ],
+  },
+]
+
+const activeSkinTone = computed(() =>
+  selectedSkinTone.value
+    ? skinTones.find((t) => t.type === selectedSkinTone.value) || null
+    : null,
+)
+// ─────────────────────────────────────────────────────────────────────────────
 
 const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || ''
 
@@ -384,11 +722,378 @@ watch(
 )
 
 const setupResize = () => {
-  resizeHandler = () => drawChart()
+  resizeHandler = () => {
+    drawChart()
+    drawMonthlyUvChart()
+    drawMelanomaChart()
+  }
   window.addEventListener('resize', resizeHandler)
 }
 
 setupResize()
+
+// ── Dataset 1: Monthly UV – Melbourne vs Sydney (2024) ───────────────────────
+const monthlyChart = ref(null)
+
+const melbourneMonthlyUv = [
+  { month: 1, city: 'Melbourne', avg_uv: 4.60 },
+  { month: 2, city: 'Melbourne', avg_uv: 4.59 },
+  { month: 3, city: 'Melbourne', avg_uv: 3.21 },
+  { month: 4, city: 'Melbourne', avg_uv: 1.47 },
+  { month: 5, city: 'Melbourne', avg_uv: 0.93 },
+  { month: 6, city: 'Melbourne', avg_uv: 0.58 },
+  { month: 7, city: 'Melbourne', avg_uv: 0.56 },
+  { month: 8, city: 'Melbourne', avg_uv: 1.11 },
+  { month: 9, city: 'Melbourne', avg_uv: 1.59 },
+  { month: 10, city: 'Melbourne', avg_uv: 2.90 },
+  { month: 11, city: 'Melbourne', avg_uv: 3.75 },
+  { month: 12, city: 'Melbourne', avg_uv: 5.23 },
+]
+
+const sydneyMonthlyUv = [
+  { month: 1, city: 'Sydney', avg_uv: 3.82 },
+  { month: 2, city: 'Sydney', avg_uv: 3.18 },
+  { month: 3, city: 'Sydney', avg_uv: 2.82 },
+  { month: 4, city: 'Sydney', avg_uv: 2.09 },
+  { month: 5, city: 'Sydney', avg_uv: 1.64 },
+  { month: 6, city: 'Sydney', avg_uv: 1.65 },
+  { month: 7, city: 'Sydney', avg_uv: 1.58 },
+  { month: 8, city: 'Sydney', avg_uv: 1.88 },
+  { month: 9, city: 'Sydney', avg_uv: 2.40 },
+  { month: 10, city: 'Sydney', avg_uv: 3.27 },
+  { month: 11, city: 'Sydney', avg_uv: 3.36 },
+  { month: 12, city: 'Sydney', avg_uv: 4.87 },
+]
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+const drawMonthlyUvChart = () => {
+  if (!monthlyChart.value) return
+  const container = monthlyChart.value
+  d3.select(container).selectAll('*').remove()
+
+  const rect = container.getBoundingClientRect()
+  const width = Math.max(320, Math.floor(rect.width))
+  const height = 260
+  const margin = { top: 20, right: 24, bottom: 44, left: 48 }
+  const innerW = width - margin.left - margin.right
+  const innerH = height - margin.top - margin.bottom
+
+  const svg = d3.select(container).append('svg').attr('width', width).attr('height', height)
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
+
+  const x = d3.scaleBand().domain(MONTHS).range([0, innerW]).padding(0.2)
+  const maxUv = 6
+  const y = d3.scaleLinear().domain([0, maxUv]).nice().range([innerH, 0])
+
+  // UV ≥ 3 band
+  g.append('rect')
+    .attr('x', 0).attr('width', innerW)
+    .attr('y', y(maxUv)).attr('height', y(3) - y(maxUv))
+    .attr('fill', 'rgba(239,68,68,0.06)')
+
+  g.append('line')
+    .attr('x1', 0).attr('x2', innerW)
+    .attr('y1', y(3)).attr('y2', y(3))
+    .attr('stroke', '#ef4444').attr('stroke-dasharray', '4,3').attr('stroke-width', 1)
+
+  g.append('text')
+    .attr('x', innerW - 4).attr('y', y(3) - 4)
+    .attr('text-anchor', 'end').attr('fill', '#ef4444')
+    .style('font-size', '10px').text('UV 3 — protection needed')
+
+  const barW = x.bandwidth() / 2 - 1
+
+  // Melbourne bars
+  g.selectAll('.bar-mel')
+    .data(melbourneMonthlyUv)
+    .enter().append('rect')
+    .attr('class', 'bar-mel')
+    .attr('x', d => (x(MONTHS[d.month - 1]) || 0))
+    .attr('y', d => y(d.avg_uv))
+    .attr('width', barW)
+    .attr('height', d => innerH - y(d.avg_uv))
+    .attr('fill', '#0ea5e9').attr('rx', 3)
+
+  // Sydney bars
+  g.selectAll('.bar-syd')
+    .data(sydneyMonthlyUv)
+    .enter().append('rect')
+    .attr('class', 'bar-syd')
+    .attr('x', d => (x(MONTHS[d.month - 1]) || 0) + barW + 2)
+    .attr('y', d => y(d.avg_uv))
+    .attr('width', barW)
+    .attr('height', d => innerH - y(d.avg_uv))
+    .attr('fill', '#f97316').attr('rx', 3)
+
+  // Tooltip
+  const tip = d3.select(container).append('div')
+    .style('position', 'absolute').style('padding', '6px 8px')
+    .style('background', 'rgba(15,23,42,.9)').style('color', '#fff')
+    .style('font-size', '12px').style('border-radius', '8px')
+    .style('pointer-events', 'none').style('opacity', 0)
+
+  const addTips = (sel, city) => {
+    sel
+      .on('mousemove', (e, d) => {
+        tip.style('opacity', 1)
+          .html(`<b>${MONTHS[d.month - 1]} — ${city}</b><br/>Avg UV: ${d.avg_uv}`)
+          .style('left', e.offsetX + 14 + 'px')
+          .style('top', e.offsetY - 10 + 'px')
+      })
+      .on('mouseleave', () => tip.style('opacity', 0))
+  }
+  addTips(g.selectAll('.bar-mel'), 'Melbourne')
+  addTips(g.selectAll('.bar-syd'), 'Sydney')
+
+  g.append('g').attr('transform', `translate(0,${innerH})`)
+    .call(d3.axisBottom(x))
+    .selectAll('text').style('font-size', '11px')
+
+  g.append('g').call(d3.axisLeft(y).ticks(6))
+
+  g.append('text').attr('x', innerW / 2).attr('y', innerH + 38)
+    .attr('text-anchor', 'middle').attr('fill', 'rgba(15,23,42,0.7)').style('font-size', '12px').text('Month (2024)')
+
+  g.append('text').attr('transform', 'rotate(-90)').attr('x', -innerH / 2).attr('y', -36)
+    .attr('text-anchor', 'middle').attr('fill', 'rgba(15,23,42,0.7)').style('font-size', '12px').text('Avg UV Index')
+}
+
+// ── Dataset 2: Melanoma Incidence Trend (1982–2019) ──────────────────────────
+const melanomaTrendChart = ref(null)
+
+const melanomaTrendData = [
+  { year: 1982, males: 3470, females: 3600, persons: 7070 },
+  { year: 1983, males: 3640, females: 3957, persons: 7597 },
+  { year: 1984, males: 3986, females: 4099, persons: 8085 },
+  { year: 1985, males: 4445, females: 4572, persons: 9017 },
+  { year: 1986, males: 4805, females: 4610, persons: 9415 },
+  { year: 1987, males: 5754, females: 5370, persons: 11124 },
+  { year: 1988, males: 6060, females: 5754, persons: 11814 },
+  { year: 1989, males: 6536, females: 6024, persons: 12560 },
+  { year: 1990, males: 7132, females: 6408, persons: 13540 },
+  { year: 1991, males: 7334, females: 6566, persons: 13900 },
+  { year: 1992, males: 7574, females: 6750, persons: 14324 },
+  { year: 1993, males: 7990, females: 6982, persons: 14972 },
+  { year: 1994, males: 8208, females: 7110, persons: 15318 },
+  { year: 1995, males: 8628, females: 7456, persons: 16084 },
+  { year: 1996, males: 9148, females: 7734, persons: 16882 },
+  { year: 1997, males: 9452, females: 8010, persons: 17462 },
+  { year: 1998, males: 9830, females: 8272, persons: 18102 },
+  { year: 1999, males: 10164, females: 8490, persons: 18654 },
+  { year: 2000, males: 10686, females: 8834, persons: 19520 },
+  { year: 2001, males: 11248, females: 9248, persons: 20496 },
+  { year: 2002, males: 11700, females: 9514, persons: 21214 },
+  { year: 2003, males: 11928, females: 9700, persons: 21628 },
+  { year: 2004, males: 12218, females: 9908, persons: 22126 },
+  { year: 2005, males: 12818, females: 10282, persons: 23100 },
+  { year: 2006, males: 13044, females: 10536, persons: 23580 },
+  { year: 2007, males: 13218, females: 10544, persons: 23762 },
+  { year: 2008, males: 13502, females: 10758, persons: 24260 },
+  { year: 2009, males: 13884, females: 11050, persons: 24934 },
+  { year: 2010, males: 13982, females: 11044, persons: 25026 },
+  { year: 2011, males: 14080, females: 11210, persons: 25290 },
+  { year: 2012, males: 14752, females: 11726, persons: 26478 },
+  { year: 2013, males: 15454, females: 12292, persons: 27746 },
+  { year: 2014, males: 15774, females: 12634, persons: 28408 },
+  { year: 2015, males: 16028, females: 11422, persons: 27450 },
+  { year: 2016, males: 16994, females: 12080, persons: 29074 },
+  { year: 2017, males: 17650, females: 12274, persons: 29924 },
+  { year: 2018, males: 17628, females: 12640, persons: 30270 },
+  { year: 2019, males: 18268, females: 12988, persons: 31256 },
+]
+
+const drawMelanomaChart = () => {
+  if (!melanomaTrendChart.value) return
+  const container = melanomaTrendChart.value
+  d3.select(container).selectAll('*').remove()
+
+  const rect = container.getBoundingClientRect()
+  const width = Math.max(320, Math.floor(rect.width))
+  const height = 280
+  const margin = { top: 18, right: 24, bottom: 44, left: 58 }
+  const innerW = width - margin.left - margin.right
+  const innerH = height - margin.top - margin.bottom
+
+  const svg = d3.select(container).append('svg').attr('width', width).attr('height', height)
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
+
+  const data = melanomaTrendData
+  const x = d3.scaleLinear().domain([1982, 2019]).range([0, innerW])
+  const maxVal = d3.max(data, d => d.persons) || 0
+  const y = d3.scaleLinear().domain([0, Math.ceil(maxVal / 1000) * 1000]).nice().range([innerH, 0])
+
+  const linePersons = d3.line().x(d => x(d.year)).y(d => y(d.persons)).curve(d3.curveMonotoneX)
+  const lineMales   = d3.line().x(d => x(d.year)).y(d => y(d.males)).curve(d3.curveMonotoneX)
+  const lineFemales = d3.line().x(d => x(d.year)).y(d => y(d.females)).curve(d3.curveMonotoneX)
+
+  // Area fill for persons
+  const areaPersons = d3.area()
+    .x(d => x(d.year)).y0(innerH).y1(d => y(d.persons))
+    .curve(d3.curveMonotoneX)
+
+  g.append('path').datum(data).attr('fill', 'rgba(139,92,246,0.08)').attr('d', areaPersons)
+  g.append('path').datum(data).attr('fill', 'none').attr('stroke', '#8b5cf6').attr('stroke-width', 2.5).attr('d', linePersons)
+  g.append('path').datum(data).attr('fill', 'none').attr('stroke', '#0ea5e9').attr('stroke-width', 2).attr('d', lineMales)
+  g.append('path').datum(data).attr('fill', 'none').attr('stroke', '#f43f5e').attr('stroke-width', 2).attr('d', lineFemales)
+
+  // Tooltip
+  const tip = d3.select(container).append('div')
+    .style('position', 'absolute').style('padding', '6px 10px')
+    .style('background', 'rgba(15,23,42,.92)').style('color', '#fff')
+    .style('font-size', '12px').style('border-radius', '8px')
+    .style('pointer-events', 'none').style('opacity', 0)
+
+  // Invisible overlay for hover
+  g.append('rect')
+    .attr('width', innerW).attr('height', innerH)
+    .attr('fill', 'none').attr('pointer-events', 'all')
+    .on('mousemove', (e) => {
+      const [mx] = d3.pointer(e)
+      const yr = Math.round(x.invert(mx))
+      const d = data.find(r => r.year === yr)
+      if (!d) return
+      tip.style('opacity', 1)
+        .html(`<b>${d.year}</b><br/>Persons: ${d.persons.toLocaleString()}<br/>Males: ${d.males.toLocaleString()}<br/>Females: ${d.females.toLocaleString()}`)
+        .style('left', e.offsetX + 14 + 'px')
+        .style('top', e.offsetY - 10 + 'px')
+    })
+    .on('mouseleave', () => tip.style('opacity', 0))
+
+  g.append('g').attr('transform', `translate(0,${innerH})`)
+    .call(d3.axisBottom(x).ticks(8).tickFormat(d3.format('d')))
+
+  g.append('g').call(d3.axisLeft(y).ticks(6).tickFormat(d => (d / 1000) + 'k'))
+
+  g.append('text').attr('x', innerW / 2).attr('y', innerH + 38)
+    .attr('text-anchor', 'middle').attr('fill', 'rgba(15,23,42,0.7)').style('font-size', '12px').text('Year')
+
+  g.append('text').attr('transform', 'rotate(-90)').attr('x', -innerH / 2).attr('y', -46)
+    .attr('text-anchor', 'middle').attr('fill', 'rgba(15,23,42,0.7)').style('font-size', '12px').text('New cases')
+}
+
+// ── Dataset 3: Sun Protection Self-Check (SUNPROT survey measures) ────────────
+const sunProtMeasures = [
+  { code: '1', icon: '🌳', label: 'Stayed in the shade' },
+  { code: '2', icon: '🧴', label: 'Used SPF30+ sunscreen' },
+  { code: '3', icon: '👕', label: 'Clothing covering arms (¾+)' },
+  { code: '4', icon: '👖', label: 'Clothing covering legs (¾+)' },
+  { code: '5', icon: '🕶️', label: 'Wore sunglasses' },
+  { code: '6', icon: '🧢', label: 'Wore broad-brimmed hat' },
+]
+
+const sunProtChecked = ref({ '1': false, '2': false, '3': false, '4': false, '5': false, '6': false })
+
+const sunProtScore = computed(() => Object.values(sunProtChecked.value).filter(Boolean).length)
+const sunProtScorePct = computed(() => Math.round((sunProtScore.value / sunProtMeasures.length) * 100))
+const sunProtScoreClass = computed(() => {
+  const s = sunProtScore.value
+  if (s >= 5) return 'score--great'
+  if (s >= 3) return 'score--good'
+  if (s >= 1) return 'score--low'
+  return ''
+})
+const sunProtScoreText = computed(() => {
+  const s = sunProtScore.value
+  if (s >= 5) return 'Excellent protection!'
+  if (s >= 3) return 'Good — consider adding more measures'
+  if (s >= 1) return 'Limited — UV damage risk is higher'
+  return ''
+})
+
+// Draw charts after mount
+watch(
+  monthlyChart,
+  async (el) => {
+    if (el) { await nextTick(); drawMonthlyUvChart() }
+  },
+)
+
+watch(
+  melanomaTrendChart,
+  async (el) => {
+    if (el) { await nextTick(); drawMelanomaChart() }
+  },
+)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Sun Safety Knowledge Quiz ─────────────────────────────────────────────────
+const quizQuestions = [
+  {
+    question: 'At what UV Index level should you start wearing sun protection?',
+    options: ['UV 1', 'UV 3', 'UV 6', 'UV 8'],
+    correct: 1,
+    explanation:
+      'Sun protection (sunscreen, hat, clothing) is recommended when the UV Index reaches 3 or above, according to the Cancer Council Australia and WHO.',
+  },
+  {
+    question: 'How long does SPF50+ sunscreen protect you if applied correctly?',
+    options: ['All day', '6 hours', '2 hours', '30 minutes'],
+    correct: 2,
+    explanation:
+      'SPF50+ sunscreen should be reapplied at least every 2 hours — or more frequently if swimming, sweating, or towelling. No sunscreen lasts all day.',
+  },
+  {
+    question: 'Which part of the body is most commonly missed when applying sunscreen?',
+    options: ['Arms', 'Back of the neck and ears', 'Chest', 'Legs'],
+    correct: 1,
+    explanation:
+      'The back of the neck, ears, and the top of the head are commonly missed areas that can receive significant UV exposure, especially in outdoor activities.',
+  },
+  {
+    question: 'Can you get sunburnt on a cloudy day?',
+    options: [
+      'No, clouds block all UV',
+      'Only if it is very hot',
+      'Yes — up to 80% of UV can penetrate cloud cover',
+      'Only near reflective surfaces like water',
+    ],
+    correct: 2,
+    explanation:
+      'Clouds do not fully block UV radiation. Up to 80% of UV rays can pass through cloud cover, meaning sun protection is still essential on overcast days when UV ≥ 3.',
+  },
+  {
+    question: 'Which of the following does NOT protect against UV radiation?',
+    options: ['UPF50+ clothing', 'Wide-brim hat', 'Dark-tinted car window glass', 'SPF50+ sunscreen'],
+    correct: 2,
+    explanation:
+      'Standard car window glass blocks most UVB rays but not UVA rays. Laminated windshields provide better protection, but side and rear windows may let UVA through.',
+  },
+]
+
+const quizAnswers = ref(Array(quizQuestions.length).fill(null))
+const quizSubmitted = ref(false)
+
+const quizAnsweredCount = computed(() => quizAnswers.value.filter(a => a !== null).length)
+
+const quizScore = computed(() =>
+  quizQuestions.reduce((sum, q, i) => sum + (quizAnswers.value[i] === q.correct ? 1 : 0), 0),
+)
+
+const quizScoreClass = computed(() => {
+  const s = quizScore.value
+  if (s >= 4) return 'great'
+  if (s >= 2) return 'ok'
+  return 'low'
+})
+
+const quizScoreLabel = computed(() => {
+  const s = quizScore.value
+  if (s === 5) return 'Perfect! You are a sun safety expert.'
+  if (s >= 4) return 'Great job! Almost there.'
+  if (s >= 2) return 'Good start — review the explanations below.'
+  return 'Keep learning! Check the explanations to improve.'
+})
+
+const submitQuiz = () => {
+  quizSubmitted.value = true
+}
+
+const resetQuiz = () => {
+  quizAnswers.value = Array(quizQuestions.length).fill(null)
+  quizSubmitted.value = false
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 onBeforeUnmount(() => {
   if (resizeHandler) window.removeEventListener('resize', resizeHandler)
@@ -528,9 +1233,569 @@ onBeforeUnmount(() => {
   background: rgba(15, 23, 42, 0.02);
 }
 
+/* ── Skin Tone Selector ──────────────────────────────────────────────── */
+.skin-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.skin-swatch {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.18s, transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  outline: none;
+}
+
+.skin-swatch:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.skin-swatch--active {
+  border-color: #0ea5e9;
+  transform: scale(1.12);
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.28), 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.swatch-type {
+  font-weight: 900;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.skin-info-panel {
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-left: 5px solid #ccc;
+  background: #fff;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.skin-info-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.skin-color-dot {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.skin-type-label {
+  font-size: 0.85rem;
+  color: rgba(15, 23, 42, 0.6);
+  font-weight: 700;
+}
+
+.skin-type-name {
+  font-weight: 900;
+  font-size: 1.05rem;
+  margin-top: 2px;
+}
+
+.skin-sensitivity-badge {
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.sensitivity--extreme  { background: rgba(239, 68, 68, 0.15);  color: #b91c1c; }
+.sensitivity--veryhigh { background: rgba(249, 115, 22, 0.15); color: #c2410c; }
+.sensitivity--high     { background: rgba(234, 179, 8, 0.18);  color: #92400e; }
+.sensitivity--moderate { background: rgba(34, 197, 94, 0.15);  color: #15803d; }
+.sensitivity--low      { background: rgba(14, 165, 233, 0.12); color: #0369a1; }
+
+.skin-details-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.skin-detail-item {
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.detail-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.55);
+  margin-bottom: 4px;
+}
+
+.detail-value {
+  font-weight: 800;
+  font-size: 0.92rem;
+}
+
+.skin-advice {
+  border-radius: 12px;
+  background: rgba(14, 165, 233, 0.05);
+  border: 1px solid rgba(14, 165, 233, 0.18);
+  padding: 12px 14px;
+}
+
+.skin-advice-title {
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.skin-advice-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.skin-advice-list li {
+  color: rgba(15, 23, 42, 0.85);
+  line-height: 1.5;
+}
+
+.skin-placeholder {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px dashed rgba(15, 23, 42, 0.22);
+  color: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.02);
+  text-align: center;
+}
+
+.skin-info-fade-enter-active,
+.skin-info-fade-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.skin-info-fade-enter-from,
+.skin-info-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+/* ─────────────────────────────────────────────────────────────────────── */
+
+/* ── Monthly UV + Melanoma charts ─────────────────────────────────────── */
+.uv-city-legend,
+.melanoma-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.75);
+  margin-bottom: 10px;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-dot.ml {
+  margin-left: 14px;
+}
+
+.legend-note {
+  margin-left: 14px;
+  font-weight: 600;
+  color: #ef4444;
+  font-size: 0.82rem;
+}
+
+.melanoma-stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.mel-stat {
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.mel-stat--highlight {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.mel-stat-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.55);
+  margin-bottom: 4px;
+}
+
+.mel-stat-value {
+  font-weight: 900;
+  font-size: 1.1rem;
+}
+
+.mel-stat--highlight .mel-stat-value {
+  color: #dc2626;
+}
+
+/* ── Sun Protection Self-Check ─────────────────────────────────────────── */
+.suncheck-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.suncheck-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(15, 23, 42, 0.12);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  user-select: none;
+}
+
+.suncheck-item--checked {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.suncheck-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.suncheck-label {
+  flex: 1;
+  font-weight: 700;
+  font-size: 0.88rem;
+  line-height: 1.3;
+}
+
+.suncheck-tick {
+  font-weight: 900;
+  color: transparent;
+  transition: color 0.15s;
+}
+
+.suncheck-item--checked .suncheck-tick {
+  color: #16a34a;
+}
+
+.suncheck-score-row {
+  display: grid;
+  gap: 6px;
+}
+
+.suncheck-bar-wrap {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.suncheck-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.score--great { background: #22c55e; color: #15803d; }
+.score--good  { background: #f59e0b; color: #92400e; }
+.score--low   { background: #ef4444; color: #b91c1c; }
+
+.suncheck-score-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.8);
+}
+
+.suncheck-placeholder {
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px dashed rgba(15, 23, 42, 0.2);
+  color: rgba(15, 23, 42, 0.6);
+  text-align: center;
+}
+/* ── Sun Safety Knowledge Quiz ──────────────────────────────────────────── */
+.quiz-question {
+  border-radius: 14px;
+  border: 1.5px solid rgba(15, 23, 42, 0.08);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  background: rgba(15, 23, 42, 0.015);
+  transition: border-color 0.15s;
+}
+
+.quiz-question--answered {
+  border-color: rgba(14, 165, 233, 0.3);
+}
+
+.quiz-q-text {
+  font-weight: 800;
+  font-size: 1rem;
+  margin-bottom: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  line-height: 1.45;
+}
+
+.quiz-q-num {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 900;
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+  border-radius: 6px;
+  padding: 2px 7px;
+  margin-top: 1px;
+}
+
+.quiz-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
+}
+
+.quiz-opt {
+  border: 1.5px solid rgba(15, 23, 42, 0.12);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.88rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.quiz-opt:hover {
+  border-color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.06);
+}
+
+.quiz-opt--selected {
+  border-color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+}
+
+.quiz-opt-letter {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 900;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quiz-opt--selected .quiz-opt-letter {
+  background: #0ea5e9;
+  color: #fff;
+}
+
+.quiz-submit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.quiz-answered-count {
+  font-size: 0.88rem;
+  color: rgba(15, 23, 42, 0.6);
+  font-weight: 700;
+}
+
+.quiz-submit-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 24px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  background: #0ea5e9;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.quiz-submit-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.quiz-results {
+  display: grid;
+  gap: 16px;
+}
+
+.quiz-score-banner {
+  border-radius: 16px;
+  padding: 18px 20px;
+  text-align: center;
+  border: 1.5px solid transparent;
+}
+
+.quiz-score--great {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.quiz-score--ok {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.3);
+}
+
+.quiz-score--low {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.quiz-score-num {
+  font-size: 2.2rem;
+  font-weight: 900;
+}
+
+.quiz-score-label {
+  margin-top: 4px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.75);
+}
+
+.quiz-review {
+  display: grid;
+  gap: 10px;
+}
+
+.quiz-review-item {
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+}
+
+.quiz-review--correct {
+  background: rgba(34, 197, 94, 0.06);
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.quiz-review--wrong {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.quiz-review-q {
+  font-weight: 700;
+  font-size: 0.92rem;
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+}
+
+.quiz-review-icon {
+  flex-shrink: 0;
+}
+
+.quiz-review-ans {
+  margin-top: 5px;
+  font-size: 0.85rem;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.quiz-your-ans {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.quiz-correct-ans {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.quiz-explanation {
+  margin-top: 7px;
+  font-size: 0.86rem;
+  color: rgba(15, 23, 42, 0.7);
+  line-height: 1.5;
+  border-left: 3px solid rgba(15, 23, 42, 0.12);
+  padding-left: 10px;
+}
+
+.quiz-retry-btn {
+  border: 1.5px solid rgba(15, 23, 42, 0.15);
+  border-radius: 10px;
+  padding: 9px 22px;
+  font-weight: 800;
+  font-size: 0.92rem;
+  background: #fff;
+  cursor: pointer;
+  width: fit-content;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.quiz-retry-btn:hover {
+  border-color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.06);
+}
+
+/* ─────────────────────────────────────────────────────────────────────── */
+
 @media (max-width: 840px) {
   .summary-grid {
     grid-template-columns: 1fr;
+  }
+  .skin-details-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .melanoma-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .suncheck-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .quiz-options {
+    grid-template-columns: 1fr;
+  }
+  .quiz-submit-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 }
 </style>
