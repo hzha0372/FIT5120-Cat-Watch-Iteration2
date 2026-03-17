@@ -33,6 +33,7 @@
           <div class="jump-text">Articles</div>
           <div class="jump-btn">Read more</div>
         </button>
+
       </div>
     </section>
 
@@ -125,6 +126,87 @@
                 <div class="modal-tip">
                   <strong>Tip:</strong> Use the <a href="https://www.arpansa.gov.au/our-services/monitoring/uv-radiation-monitoring" target="_blank" rel="noreferrer">ARPANSA UV Alert</a> or the
                   <a href="https://www.sunsmart.com.au/tools/uv-and-sun-protection-times" target="_blank" rel="noreferrer">SunSmart app</a> to check today's UV forecast before heading outdoors.
+                </div>
+
+                <!-- ── Dynamic city UV data ───────────────────────────────── -->
+                <div class="uv-city-section">
+                  <h3 class="modal-section-title" style="margin-top:28px;">2025 Annual UV Data by City</h3>
+                  <p class="modal-intro" style="margin-bottom:14px;">
+                    Select an Australian city to view its 2025 UV patterns. Data fetched live from Open-Meteo historical records.
+                  </p>
+
+                  <!-- City selector -->
+                  <div class="city-selector">
+                    <button
+                      v-for="c in AU_CITIES" :key="c.key"
+                      :class="['city-btn', modalCity === c.key ? 'city-btn--active' : '']"
+                      @click="selectModalCity(c.key)"
+                    >{{ c.label }}</button>
+                  </div>
+
+                  <div v-if="modalCityLoading" class="city-loading">
+                    <span class="loading-spinner"></span>
+                    Fetching UV data for {{ currentCityLabel }}…
+                  </div>
+                  <div v-else-if="modalCityError" class="error-text">{{ modalCityError }}</div>
+
+                  <template v-else-if="modalCityData">
+                    <!-- Data source badge -->
+                    <div v-if="modalCityData.estimated" class="data-badge data-badge--est">
+                      ⚠ Estimated — scaled from Melbourne CSV baseline (uv_melbourne_cleaned.csv)
+                    </div>
+                    <div v-else class="data-badge data-badge--real">
+                      ✓ Real data — sourced from uv_{{ modalCity }}_cleaned.csv (ARPANSA 2024)
+                    </div>
+
+                  <!-- Stats strip -->
+                    <div class="uv-stats-row" style="margin-bottom:18px;">
+                      <div class="uv-stat">
+                        <div class="uv-stat-val">{{ modalCityData.stats.peak_uv_ever }}</div>
+                        <div class="uv-stat-lbl">Highest UV recorded<br/><small>{{ currentCityLabel }} 2025</small></div>
+                      </div>
+                      <div class="uv-stat uv-stat--warn">
+                        <div class="uv-stat-val">{{ modalCityData.stats.danger_days }}</div>
+                        <div class="uv-stat-lbl">Days UV ≥ 3<br/><small>protection needed</small></div>
+                      </div>
+                      <div class="uv-stat uv-stat--danger">
+                        <div class="uv-stat-val">{{ modalCityData.stats.extreme_days }}</div>
+                        <div class="uv-stat-lbl">Extreme UV days<br/><small>UV ≥ 11</small></div>
+                      </div>
+                      <div class="uv-stat">
+                        <div class="uv-stat-val">{{ modalCityData.stats.safe_days }}</div>
+                        <div class="uv-stat-lbl">Low UV days<br/><small>UV &lt; 3 all day</small></div>
+                      </div>
+                    </div>
+
+                    <!-- Chart A: monthly -->
+                    <div class="uv-chart-block">
+                      <div class="uv-chart-hd">
+                        <h3 class="uv-chart-title">Monthly Average Peak UV — {{ currentCityLabel }} (2025)</h3>
+                        <p class="uv-chart-cap">Average of each day's peak UV reading per month. Dashed line marks the UV 3 protection threshold.</p>
+                      </div>
+                      <div ref="modalMonthlyEl" class="uv-chart-surface"></div>
+                    </div>
+
+                    <!-- Chart B: hourly -->
+                    <div class="uv-chart-block">
+                      <div class="uv-chart-hd">
+                        <h3 class="uv-chart-title">Average UV by Hour — {{ currentCityLabel }}, Typical Day 2025</h3>
+                        <p class="uv-chart-cap">Averaged across all days in 2025. Coloured bands show UV risk zones.</p>
+                      </div>
+                      <div ref="modalHourlyEl" class="uv-chart-surface"></div>
+                    </div>
+
+                    <p class="uv-data-source">
+                      <template v-if="!modalCityData.estimated">
+                        Source: ARPANSA UV monitoring station data for {{ currentCityLabel }}, 2024 (uv_{{ modalCity }}_cleaned.csv). Monthly averages and hourly patterns computed from raw minute-level readings.
+                      </template>
+                      <template v-else>
+                        Source: Estimated from uv_melbourne_cleaned.csv (ARPANSA 2024) using published BOM/ARPANSA UV scaling factors for {{ currentCityLabel }}.
+                        For verified data, see ARPANSA's UV monitoring network.
+                      </template>
+                    </p>
+                  </template>
                 </div>
               </div>
             </div>
@@ -260,6 +342,66 @@
           <div class="summary-value">{{ summary.hoursUv3Plus }}</div>
         </div>
       </div>
+
+      <!-- ── Dataset charts (from uv_melbourne/sydney CSV) ─────────────────── -->
+      <div class="uv-divider">
+        <span>2024 Measured UV Data — Melbourne &amp; Sydney</span>
+      </div>
+
+      <div v-if="uvLoading" class="status-text">Loading measured UV data…</div>
+      <div v-else-if="uvDataError" class="error-text">{{ uvDataError }}</div>
+
+      <template v-else-if="uvData">
+        <!-- Stats row -->
+        <div class="uv-stats-row">
+          <div class="uv-stat">
+            <div class="uv-stat-val">{{ uvData.melb.stats.peak_uv_ever }}</div>
+            <div class="uv-stat-lbl">Highest UV ever<br/><small>Melbourne 2024</small></div>
+          </div>
+          <div class="uv-stat">
+            <div class="uv-stat-val">{{ uvData.syd.stats.peak_uv_ever }}</div>
+            <div class="uv-stat-lbl">Highest UV ever<br/><small>Sydney 2024</small></div>
+          </div>
+          <div class="uv-stat uv-stat--warn">
+            <div class="uv-stat-val">{{ uvData.melb.stats.danger_days }}</div>
+            <div class="uv-stat-lbl">Days UV ≥ 3<br/><small>Melbourne 2024</small></div>
+          </div>
+          <div class="uv-stat uv-stat--warn">
+            <div class="uv-stat-val">{{ uvData.syd.stats.danger_days }}</div>
+            <div class="uv-stat-lbl">Days UV ≥ 3<br/><small>Sydney 2024</small></div>
+          </div>
+          <div class="uv-stat uv-stat--danger">
+            <div class="uv-stat-val">{{ uvData.melb.stats.extreme_days }}</div>
+            <div class="uv-stat-lbl">Extreme UV days<br/><small>Melbourne 2024</small></div>
+          </div>
+          <div class="uv-stat uv-stat--danger">
+            <div class="uv-stat-val">{{ uvData.syd.stats.extreme_days }}</div>
+            <div class="uv-stat-lbl">Extreme UV days<br/><small>Sydney 2024</small></div>
+          </div>
+        </div>
+
+        <!-- Chart A: Monthly average peak UV -->
+        <div class="uv-chart-block">
+          <div class="uv-chart-hd">
+            <h3 class="uv-chart-title">Monthly Average Peak UV — Melbourne vs Sydney (2024)</h3>
+            <p class="uv-chart-cap">Average of each day's highest UV reading per month. Dashed line = UV 3 (protection threshold). Source: ARPANSA UV measurements.</p>
+          </div>
+          <div ref="monthlyChartEl" class="uv-chart-surface"></div>
+        </div>
+
+        <!-- Chart B: Typical-day hourly UV curve -->
+        <div class="uv-chart-block">
+          <div class="uv-chart-hd">
+            <h3 class="uv-chart-title">Average UV by Hour — Typical Day in 2024</h3>
+            <p class="uv-chart-cap">Averaged across all 366 days in 2024. Coloured bands show Low / Moderate / High / Very High risk zones.</p>
+          </div>
+          <div ref="hourlyChartEl" class="uv-chart-surface"></div>
+        </div>
+
+        <p class="uv-data-source">
+          Source: ARPANSA UV monitoring stations, Melbourne &amp; Sydney 2024 (uv_melbourne_cleaned.csv, uv_sydney_cleaned.csv).
+        </p>
+      </template>
     </section>
 
     <section id="myth-fact" class="awareness-card fade" aria-labelledby="myth-title">
@@ -316,6 +458,7 @@
         </a>
       </div>
     </section>
+
   </main>
 </template>
 
@@ -325,16 +468,22 @@ import * as d3 from 'd3'
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 const activeModal = ref(null)
-const openModal = (id) => {
+const openModal = async (id) => {
   activeModal.value = id
   document.body.style.overflow = 'hidden'
+  if (id === 'uv') {
+    if (!modalCityData.value && !modalCityLoading.value) {
+      fetchModalCityData(modalCity.value)
+    } else if (modalCityData.value) {
+      await nextTick()
+      drawModalMonthlyChart()
+      drawModalHourlyChart()
+    }
+  }
 }
-const closeModal = () => {
-  activeModal.value = null
-  document.body.style.overflow = ''
-}
+const closeModal = () => { activeModal.value = null; document.body.style.overflow = '' }
 
-// ── UV Chart ──────────────────────────────────────────────────────────────────
+// ── Live UV chart (Open-Meteo) ────────────────────────────────────────────────
 const loading = ref(false)
 const errorMessage = ref('')
 const locationLabel = ref('')
@@ -362,20 +511,14 @@ const parseHourly = (data) => {
 }
 
 const fetchHourlyUvForCoordinates = async (lat, lon, label) => {
-  loading.value = true
-  errorMessage.value = ''
+  loading.value = true; errorMessage.value = ''
   try {
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=uv_index&forecast_days=1&timezone=auto`)
     hourly.value = parseHourly(await res.json())
     locationLabel.value = label
-    await nextTick()
-    drawChart()
-  } catch (e) {
-    hourly.value = []
-    errorMessage.value = e.message || 'Failed to load UV data.'
-  } finally {
-    loading.value = false
-  }
+    await nextTick(); drawChart()
+  } catch (e) { hourly.value = []; errorMessage.value = e.message || 'Failed to load UV data.' }
+  finally { loading.value = false }
 }
 
 const useCurrentLocation = () => {
@@ -405,15 +548,14 @@ const drawChart = () => {
   clearChart()
   if (!chart.value || !hourly.value.length) return
   const container = chart.value
-  const width = Math.max(320, container.getBoundingClientRect().width)
-  const height = 300
-  const m = { top: 18, right: 22, bottom: 44, left: 48 }
-  const iW = width - m.left - m.right, iH = height - m.top - m.bottom
+  const W = Math.max(320, container.getBoundingClientRect().width)
+  const H = 300, m = { top: 18, right: 22, bottom: 44, left: 48 }
+  const iW = W - m.left - m.right, iH = H - m.top - m.bottom
   const data = [...hourly.value].sort((a, b) => a.time - b.time)
   const maxUv = d3.max(data, (d) => d.uv) || 0
   const x = d3.scaleTime().domain(d3.extent(data, (d) => d.time)).range([0, iW])
   const y = d3.scaleLinear().domain([0, Math.max(1, Math.ceil(maxUv))]).nice().range([iH, 0])
-  const svg = d3.select(container).append('svg').attr('width', width).attr('height', height)
+  const svg = d3.select(container).append('svg').attr('width', W).attr('height', H)
   const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`)
   const bands = [
     { from: 0, to: 2.9, color: 'rgba(34,197,94,.10)' },
@@ -421,35 +563,249 @@ const drawChart = () => {
     { from: 6, to: 7.9, color: 'rgba(249,115,22,.12)' },
     { from: 8, to: Math.max(12, maxUv), color: 'rgba(239,68,68,.10)' },
   ]
-  g.selectAll('rect.risk').data(bands).enter().append('rect')
-    .attr('x', 0).attr('width', iW)
-    .attr('y', (d) => y(d.to)).attr('height', (d) => Math.max(0, y(d.from) - y(d.to)))
-    .attr('fill', (d) => d.color)
+  bands.forEach(b => g.append('rect').attr('x',0).attr('width',iW).attr('y',y(Math.min(b.to,maxUv+1))).attr('height',Math.max(0,y(b.from)-y(Math.min(b.to,maxUv+1)))).attr('fill',b.color))
   const line = d3.line().x((d) => x(d.time)).y((d) => y(d.uv)).curve(d3.curveMonotoneX)
-  g.append('path').datum(data).attr('fill', 'none').attr('stroke', '#0ea5e9').attr('stroke-width', 3).attr('d', line)
-  const tip = d3.select(container).append('div')
-    .style('position', 'absolute').style('padding', '6px 10px').style('background', 'rgba(15,23,42,.9)')
-    .style('color', '#fff').style('font-size', '12px').style('border-radius', '8px')
-    .style('pointer-events', 'none').style('opacity', 0)
-  g.selectAll('circle').data(data).enter().append('circle')
-    .attr('cx', (d) => x(d.time)).attr('cy', (d) => y(d.uv)).attr('r', 4).attr('fill', '#0369a1')
-    .on('mousemove', (e, d) => tip.style('opacity', 1)
-      .html(`<b>${d.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</b><br/>UV: ${d.uv.toFixed(1)}`)
-      .style('left', e.offsetX + 14 + 'px').style('top', e.offsetY - 10 + 'px'))
-    .on('mouseleave', () => tip.style('opacity', 0))
-  g.append('g').attr('transform', `translate(0,${iH})`).call(d3.axisBottom(x).ticks(8).tickFormat(d3.timeFormat('%H:%M')))
+  g.append('path').datum(data).attr('fill','none').attr('stroke','#0ea5e9').attr('stroke-width',3).attr('d',line)
+  const tip = d3.select(container).append('div').style('position','absolute').style('padding','6px 10px').style('background','rgba(15,23,42,.9)').style('color','#fff').style('font-size','12px').style('border-radius','8px').style('pointer-events','none').style('opacity',0)
+  g.selectAll('circle').data(data).enter().append('circle').attr('cx',d=>x(d.time)).attr('cy',d=>y(d.uv)).attr('r',4).attr('fill','#0369a1')
+    .on('mousemove',(e,d)=>tip.style('opacity',1).html(`<b>${d.time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</b><br/>UV: ${d.uv.toFixed(1)}`).style('left',e.offsetX+14+'px').style('top',e.offsetY-10+'px'))
+    .on('mouseleave',()=>tip.style('opacity',0))
+  g.append('g').attr('transform',`translate(0,${iH})`).call(d3.axisBottom(x).ticks(8).tickFormat(d3.timeFormat('%H:%M')))
   g.append('g').call(d3.axisLeft(y).ticks(6))
-  g.append('text').attr('x', iW / 2).attr('y', iH + 36).attr('text-anchor', 'middle').style('font-size', '12px').attr('fill', 'rgba(15,23,42,.7)').text('Time')
-  g.append('text').attr('transform', 'rotate(-90)').attr('x', -iH / 2).attr('y', -36).attr('text-anchor', 'middle').style('font-size', '12px').attr('fill', 'rgba(15,23,42,.7)').text('UV Index')
+  g.append('text').attr('x',iW/2).attr('y',iH+36).attr('text-anchor','middle').style('font-size','12px').attr('fill','rgba(15,23,42,.7)').text('Time (local)')
+  g.append('text').attr('transform','rotate(-90)').attr('x',-iH/2).attr('y',-36).attr('text-anchor','middle').style('font-size','12px').attr('fill','rgba(15,23,42,.7)').text('UV Index')
 }
 
 watch(() => hourly.value.length, async () => { await nextTick(); drawChart() })
 
-const setupResize = () => { resizeHandler = () => drawChart(); window.addEventListener('resize', resizeHandler) }
-setupResize()
+// ── Dataset UV charts: inline section (Melbourne vs Sydney, from JSON) ──────────
+const uvLoading   = ref(true)
+const uvDataError = ref('')
+const uvData      = ref(null)
+const monthlyChartEl = ref(null)
+const hourlyChartEl  = ref(null)
 
-onMounted(() => fetchHourlyUvForCoordinates(-37.8136, 144.9631, 'Melbourne (default)'))
-onBeforeUnmount(() => { if (resizeHandler) window.removeEventListener('resize', resizeHandler) })
+const UV_C = { melb: '#0ea5e9', syd: '#f59e0b' }
+
+const loadUvData = async () => {
+  try {
+    const res = await fetch('/data/uv_charts.json')
+    if (!res.ok) throw new Error('uv_charts.json not found')
+    const json = await res.json()
+    uvData.value = { melb: json.melbourne, syd: json.sydney }
+    uvLoading.value = false
+    await nextTick()
+    drawInlineMonthlyChart()
+    drawInlineHourlyChart()
+  } catch (e) {
+    uvLoading.value = false
+    uvDataError.value = 'Could not load UV dataset: ' + e.message
+  }
+}
+
+// inline grouped bar chart (Melbourne vs Sydney 2024)
+const drawInlineMonthlyChart = () => {
+  const el = monthlyChartEl.value
+  if (!el || !uvData.value) return
+  d3.select(el).selectAll('*').remove()
+  const melb = uvData.value.melb.monthly_avg_peak
+  const syd  = uvData.value.syd.monthly_avg_peak
+  const W = Math.max(340, el.getBoundingClientRect().width)
+  const H = 300, m = { top: 24, right: 48, bottom: 52, left: 52 }
+  const iW = W - m.left - m.right, iH = H - m.top - m.bottom
+  const months = melb.map(d => d.month)
+  const maxVal = Math.max(d3.max(melb, d => d.avg_peak_uv), d3.max(syd, d => d.avg_peak_uv)) + 1.5
+  const x0 = d3.scaleBand().domain(months).range([0, iW]).paddingInner(0.22)
+  const x1 = d3.scaleBand().domain(['melb','syd']).range([0, x0.bandwidth()]).padding(0.06)
+  const y  = d3.scaleLinear().domain([0, maxVal]).nice().range([iH, 0])
+  const svg = d3.select(el).append('svg').attr('width', W).attr('height', H)
+  const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`)
+  ;[{y1:0,y2:2.9,c:'rgba(34,197,94,.08)'},{y1:3,y2:5.9,c:'rgba(234,179,8,.10)'},{y1:6,y2:7.9,c:'rgba(249,115,22,.10)'},{y1:8,y2:maxVal,c:'rgba(239,68,68,.08)'}]
+    .forEach(b => g.append('rect').attr('x',0).attr('width',iW).attr('y',y(Math.min(b.y2,maxVal))).attr('height',Math.max(0,y(b.y1)-y(Math.min(b.y2,maxVal)))).attr('fill',b.c))
+  const tip = d3.select(el).append('div').style('position','absolute').style('padding','6px 10px').style('background','rgba(15,23,42,.9)').style('color','#fff').style('font-size','12px').style('border-radius','8px').style('pointer-events','none').style('opacity',0)
+  const grps = g.selectAll('.mg').data(months).enter().append('g').attr('class','mg').attr('transform', mn => `translate(${x0(mn)},0)`)
+  ;[{key:'melb',vals:melb},{key:'syd',vals:syd}].forEach(({key,vals}) => {
+    grps.append('rect').attr('x', x1(key)).attr('width', x1.bandwidth()).attr('y', (mn,i) => y(vals[i].avg_peak_uv)).attr('height', (mn,i) => Math.max(0,iH-y(vals[i].avg_peak_uv))).attr('fill',UV_C[key]).attr('rx',3)
+      .on('mousemove', (e,mn) => { const i=months.indexOf(mn); const v=key==='melb'?melb[i].avg_peak_uv:syd[i].avg_peak_uv; tip.style('opacity',1).html(`<b>${key==='melb'?'Melbourne':'Sydney'} ${mn}</b><br/>Avg peak UV: <b>${v}</b>`).style('left',e.offsetX+12+'px').style('top',e.offsetY-10+'px') })
+      .on('mouseleave', () => tip.style('opacity',0))
+  })
+  g.append('line').attr('x1',0).attr('x2',iW).attr('y1',y(3)).attr('y2',y(3)).attr('stroke','#f59e0b').attr('stroke-width',1.5).attr('stroke-dasharray','5,3').attr('opacity',.8)
+  g.append('text').attr('x',iW+3).attr('y',y(3)+4).attr('font-size',10).attr('fill','#b45309').text('UV 3')
+  g.append('g').attr('transform',`translate(0,${iH})`).call(d3.axisBottom(x0).tickSize(0)).call(ax => ax.select('.domain').remove()).selectAll('text').attr('font-size',11)
+  g.append('g').call(d3.axisLeft(y).ticks(6).tickSize(-iW)).call(ax => { ax.select('.domain').remove(); ax.selectAll('.tick line').attr('stroke','rgba(15,23,42,.07)') })
+  g.append('text').attr('transform','rotate(-90)').attr('x',-iH/2).attr('y',-38).attr('text-anchor','middle').attr('font-size',11).attr('fill','rgba(15,23,42,.6)').text('Avg peak UV Index')
+  const leg = svg.append('g').attr('transform',`translate(${m.left},${H-10})`)
+  ;[{c:UV_C.melb,l:'Melbourne'},{c:UV_C.syd,l:'Sydney'}].forEach(({c,l},i) => { leg.append('rect').attr('x',i*100).attr('width',12).attr('height',12).attr('fill',c).attr('rx',3); leg.append('text').attr('x',i*100+16).attr('y',10).attr('font-size',11).attr('fill','rgba(15,23,42,.75)').text(l) })
+}
+
+const drawInlineHourlyChart = () => {
+  const el = hourlyChartEl.value
+  if (!el || !uvData.value) return
+  d3.select(el).selectAll('*').remove()
+  const mH = uvData.value.melb.hourly_avg, sH = uvData.value.syd.hourly_avg
+  const W = Math.max(340, el.getBoundingClientRect().width), H = 280, m = { top:20, right:60, bottom:52, left:52 }
+  const iW = W-m.left-m.right, iH = H-m.top-m.bottom
+  const maxVal = Math.max(d3.max(mH,d=>d.avg_uv), d3.max(sH,d=>d.avg_uv))+0.5
+  const x = d3.scaleLinear().domain([0,23]).range([0,iW])
+  const y = d3.scaleLinear().domain([0,maxVal]).nice().range([iH,0])
+  const lineFn = d3.line().x(d=>x(d.hour)).y(d=>y(d.avg_uv)).curve(d3.curveMonotoneX)
+  const svg = d3.select(el).append('svg').attr('width',W).attr('height',H)
+  const g = svg.append('g').attr('transform',`translate(${m.left},${m.top})`)
+  ;[{y1:0,y2:2.9,c:'rgba(34,197,94,.10)'},{y1:3,y2:5.9,c:'rgba(234,179,8,.12)'},{y1:6,y2:7.9,c:'rgba(249,115,22,.12)'},{y1:8,y2:maxVal,c:'rgba(239,68,68,.10)'}]
+    .forEach(b => g.append('rect').attr('x',0).attr('width',iW).attr('y',y(Math.min(b.y2,maxVal))).attr('height',Math.max(0,y(b.y1)-y(Math.min(b.y2,maxVal)))).attr('fill',b.c))
+  const tip = d3.select(el).append('div').style('position','absolute').style('padding','6px 10px').style('background','rgba(15,23,42,.9)').style('color','#fff').style('font-size','12px').style('border-radius','8px').style('pointer-events','none').style('opacity',0)
+  ;[{data:mH,color:UV_C.melb,city:'Melbourne'},{data:sH,color:UV_C.syd,city:'Sydney'}].forEach(({data,color,city}) => {
+    g.append('path').datum(data).attr('fill','none').attr('stroke',color).attr('stroke-width',2.5).attr('d',lineFn)
+    g.selectAll(`.dot-${city}`).data(data.filter(d=>d.avg_uv>0.05)).enter().append('circle').attr('cx',d=>x(d.hour)).attr('cy',d=>y(d.avg_uv)).attr('r',3).attr('fill',color)
+      .on('mousemove',(e,d)=>tip.style('opacity',1).html(`<b>${city} ${d.hour}:00</b><br/>Avg UV: <b>${d.avg_uv}</b>`).style('left',e.offsetX+12+'px').style('top',e.offsetY-10+'px')).on('mouseleave',()=>tip.style('opacity',0))
+  })
+  ;[{uv:3,label:'Moderate',c:'#b45309'},{uv:6,label:'High',c:'#c2410c'},{uv:8,label:'Very High',c:'#b91c1c'}].forEach(({uv,label,c}) => { if(uv<=maxVal) g.append('text').attr('x',iW+3).attr('y',y(uv)+4).attr('font-size',9).attr('fill',c).text(label) })
+  g.append('g').attr('transform',`translate(0,${iH})`).call(d3.axisBottom(x).ticks(12).tickFormat(h=>`${h}:00`)).selectAll('text').attr('transform','rotate(-30)').style('text-anchor','end').attr('font-size',10)
+  g.append('g').call(d3.axisLeft(y).ticks(6).tickSize(-iW)).call(ax=>{ax.select('.domain').remove();ax.selectAll('.tick line').attr('stroke','rgba(15,23,42,.07)')})
+  g.append('text').attr('transform','rotate(-90)').attr('x',-iH/2).attr('y',-38).attr('text-anchor','middle').attr('font-size',11).attr('fill','rgba(15,23,42,.6)').text('Average UV Index')
+  const leg = svg.append('g').attr('transform',`translate(${m.left},${H-10})`)
+  ;[{c:UV_C.melb,l:'Melbourne (avg)'},{c:UV_C.syd,l:'Sydney (avg)'}].forEach(({c,l},i)=>{leg.append('rect').attr('x',i*130).attr('width',12).attr('height',12).attr('fill',c).attr('rx',3);leg.append('text').attr('x',i*130+16).attr('y',10).attr('font-size',11).attr('fill','rgba(15,23,42,.75)').text(l)})
+}
+
+// ── Modal: city UV data (city_uv_2025.json, derived from CSV datasets) ──────────
+const AU_CITIES = [
+  { key: 'melbourne', label: 'Melbourne' },
+  { key: 'sydney',    label: 'Sydney'    },
+  { key: 'brisbane',  label: 'Brisbane'  },
+  { key: 'perth',     label: 'Perth'     },
+  { key: 'adelaide',  label: 'Adelaide'  },
+  { key: 'darwin',    label: 'Darwin'    },
+  { key: 'hobart',    label: 'Hobart'    },
+  { key: 'cairns',    label: 'Cairns'    },
+]
+
+const modalCity        = ref('melbourne')
+const modalCityLoading = ref(false)
+const modalCityError   = ref('')
+const modalCityData    = ref(null)
+const modalMonthlyEl   = ref(null)
+const modalHourlyEl    = ref(null)
+
+const currentCityLabel = computed(() => AU_CITIES.find(c => c.key === modalCity.value)?.label || '')
+
+const drawModalMonthlyChart = () => {
+  const el = modalMonthlyEl.value
+  if (!el || !modalCityData.value) return
+  d3.select(el).selectAll('*').remove()
+  const data = modalCityData.value.monthly_avg_peak
+  const cityColor = '#6366f1'
+  const W = Math.max(320, el.getBoundingClientRect().width), H = 290
+  const m = { top:22, right:50, bottom:50, left:52 }
+  const iW = W-m.left-m.right, iH = H-m.top-m.bottom
+  const months = data.map(d => d.month)
+  const maxVal = (d3.max(data, d => d.avg_peak_uv) || 0) + 1.5
+  const x = d3.scaleBand().domain(months).range([0, iW]).padding(0.28)
+  const y = d3.scaleLinear().domain([0, maxVal]).nice().range([iH, 0])
+  const svg = d3.select(el).append('svg').attr('width', W).attr('height', H)
+  const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`)
+  ;[{y1:0,y2:2.9,c:'rgba(34,197,94,.08)'},{y1:3,y2:5.9,c:'rgba(234,179,8,.10)'},{y1:6,y2:7.9,c:'rgba(249,115,22,.10)'},{y1:8,y2:maxVal,c:'rgba(239,68,68,.08)'}]
+    .forEach(b => g.append('rect').attr('x',0).attr('width',iW).attr('y',y(Math.min(b.y2,maxVal))).attr('height',Math.max(0,y(b.y1)-y(Math.min(b.y2,maxVal)))).attr('fill',b.c))
+  const tip = d3.select(el).append('div').style('position','absolute').style('padding','6px 10px').style('background','rgba(15,23,42,.92)').style('color','#fff').style('font-size','12px').style('border-radius','8px').style('pointer-events','none').style('opacity',0)
+  g.selectAll('.bar').data(data).enter().append('rect').attr('class','bar')
+    .attr('x', d => x(d.month)).attr('width', x.bandwidth())
+    .attr('y', d => y(d.avg_peak_uv)).attr('height', d => Math.max(0, iH-y(d.avg_peak_uv)))
+    .attr('fill', cityColor).attr('rx', 4)
+    .on('mousemove', (e, d) => tip.style('opacity',1).html(`<b>${currentCityLabel.value} — ${d.month}</b><br/>Avg peak UV: <b>${d.avg_peak_uv}</b>`).style('left',e.offsetX+12+'px').style('top',e.offsetY-10+'px'))
+    .on('mouseleave', () => tip.style('opacity',0))
+  g.append('line').attr('x1',0).attr('x2',iW).attr('y1',y(3)).attr('y2',y(3)).attr('stroke','#f59e0b').attr('stroke-width',1.8).attr('stroke-dasharray','6,4').attr('opacity',.85)
+  g.append('text').attr('x',iW+3).attr('y',y(3)+4).attr('font-size',10).attr('fill','#b45309').text('UV 3')
+  g.append('g').attr('transform',`translate(0,${iH})`).call(d3.axisBottom(x).tickSize(0)).call(ax=>ax.select('.domain').remove()).selectAll('text').attr('font-size',11)
+  g.append('g').call(d3.axisLeft(y).ticks(6).tickSize(-iW)).call(ax=>{ax.select('.domain').remove();ax.selectAll('.tick line').attr('stroke','rgba(15,23,42,.07)')})
+  g.append('text').attr('transform','rotate(-90)').attr('x',-iH/2).attr('y',-38).attr('text-anchor','middle').attr('font-size',11).attr('fill','rgba(15,23,42,.6)').text('Avg peak UV Index')
+}
+
+const drawModalHourlyChart = () => {
+  const el = modalHourlyEl.value
+  if (!el || !modalCityData.value) return
+  d3.select(el).selectAll('*').remove()
+  const data = modalCityData.value.hourly_avg
+  const cityColor = '#6366f1'
+  const W = Math.max(320, el.getBoundingClientRect().width), H = 270
+  const m = { top:18, right:65, bottom:50, left:52 }
+  const iW = W-m.left-m.right, iH = H-m.top-m.bottom
+  const maxVal = (d3.max(data, d => d.avg_uv) || 0) + 0.5
+  const x = d3.scaleLinear().domain([0, 23]).range([0, iW])
+  const y = d3.scaleLinear().domain([0, maxVal]).nice().range([iH, 0])
+  const lineFn = d3.line().x(d => x(d.hour)).y(d => y(d.avg_uv)).curve(d3.curveMonotoneX)
+  const svg = d3.select(el).append('svg').attr('width', W).attr('height', H)
+  const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`)
+  ;[{y1:0,y2:2.9,c:'rgba(34,197,94,.10)'},{y1:3,y2:5.9,c:'rgba(234,179,8,.12)'},{y1:6,y2:7.9,c:'rgba(249,115,22,.12)'},{y1:8,y2:maxVal,c:'rgba(239,68,68,.10)'}]
+    .forEach(b => g.append('rect').attr('x',0).attr('width',iW).attr('y',y(Math.min(b.y2,maxVal))).attr('height',Math.max(0,y(b.y1)-y(Math.min(b.y2,maxVal)))).attr('fill',b.c))
+  // shaded area under curve
+  const area = d3.area().x(d => x(d.hour)).y0(iH).y1(d => y(d.avg_uv)).curve(d3.curveMonotoneX)
+  g.append('path').datum(data).attr('fill', cityColor).attr('fill-opacity', 0.12).attr('d', area)
+  g.append('path').datum(data).attr('fill', 'none').attr('stroke', cityColor).attr('stroke-width', 2.5).attr('d', lineFn)
+  const tip = d3.select(el).append('div').style('position','absolute').style('padding','6px 10px').style('background','rgba(15,23,42,.92)').style('color','#fff').style('font-size','12px').style('border-radius','8px').style('pointer-events','none').style('opacity',0)
+  g.selectAll('.dot').data(data.filter(d => d.avg_uv > 0.05)).enter().append('circle').attr('class','dot')
+    .attr('cx', d => x(d.hour)).attr('cy', d => y(d.avg_uv)).attr('r', 3.5).attr('fill', cityColor)
+    .on('mousemove', (e, d) => tip.style('opacity',1).html(`<b>${currentCityLabel.value} — ${d.hour}:00</b><br/>Avg UV: <b>${d.avg_uv}</b>`).style('left',e.offsetX+12+'px').style('top',e.offsetY-10+'px'))
+    .on('mouseleave', () => tip.style('opacity',0))
+  ;[{uv:3,label:'Moderate',c:'#b45309'},{uv:6,label:'High',c:'#c2410c'},{uv:8,label:'V.High',c:'#b91c1c'},{uv:11,label:'Extreme',c:'#7f1d1d'}].forEach(({uv,label,c})=>{ if(uv<=maxVal) g.append('text').attr('x',iW+3).attr('y',y(uv)+4).attr('font-size',9).attr('fill',c).text(label) })
+  g.append('g').attr('transform',`translate(0,${iH})`).call(d3.axisBottom(x).ticks(12).tickFormat(h=>`${h}:00`)).selectAll('text').attr('transform','rotate(-30)').style('text-anchor','end').attr('font-size',10)
+  g.append('g').call(d3.axisLeft(y).ticks(6).tickSize(-iW)).call(ax=>{ax.select('.domain').remove();ax.selectAll('.tick line').attr('stroke','rgba(15,23,42,.07)')})
+  g.append('text').attr('transform','rotate(-90)').attr('x',-iH/2).attr('y',-38).attr('text-anchor','middle').attr('font-size',11).attr('fill','rgba(15,23,42,.6)').text('Average UV Index')
+}
+
+// Pre-load all city data once, then switch instantly
+let allCityUvData = null
+
+const fetchModalCityData = async (cityKey) => {
+  modalCityLoading.value = true; modalCityError.value = ''; modalCityData.value = null
+  try {
+    if (!allCityUvData) {
+      const res = await fetch('/data/city_uv_2025.json')
+      if (!res.ok) throw new Error('city_uv_2025.json not found')
+      allCityUvData = await res.json()
+    }
+    const cityRaw = allCityUvData[cityKey]
+    if (!cityRaw) throw new Error('No data for city: ' + cityKey)
+    modalCityData.value = cityRaw
+    modalCityLoading.value = false
+    await nextTick()
+    drawModalMonthlyChart()
+    drawModalHourlyChart()
+  } catch (e) {
+    modalCityLoading.value = false
+    modalCityError.value = 'Failed to load UV data: ' + e.message
+  }
+}
+
+const selectModalCity = (key) => {
+  modalCity.value = key
+  fetchModalCityData(key)
+}
+
+const redrawInlineCharts = () => {
+  if (!uvData.value) return
+  drawInlineMonthlyChart()
+  drawInlineHourlyChart()
+}
+let dataResizeHandler = null
+
+onMounted(async () => {
+  await fetchHourlyUvForCoordinates(-37.8136, 144.9631, 'Melbourne (default)')
+  loadUvData()
+  resizeHandler = () => drawChart()
+  dataResizeHandler = () => {
+    redrawInlineCharts()
+    if (activeModal.value === 'uv' && modalCityData.value) {
+      drawModalMonthlyChart()
+      drawModalHourlyChart()
+    }
+  }
+  window.addEventListener('resize', resizeHandler)
+  window.addEventListener('resize', dataResizeHandler)
+})
+
+onBeforeUnmount(() => {
+  if (resizeHandler) window.removeEventListener('resize', resizeHandler)
+  if (dataResizeHandler) window.removeEventListener('resize', dataResizeHandler)
+})
 
 // ── Content data ──────────────────────────────────────────────────────────────
 const myths = ref([
@@ -550,6 +906,7 @@ const articles = ref([
     desc: 'Dermatologists answer the Vitamin D vs sunscreen debate with scientific evidence.',
   },
 ])
+
 </script>
 
 <style scoped>
@@ -940,4 +1297,152 @@ const articles = ref([
   .modal-body { padding: 16px; }
   .video-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Dataset UV charts (inside #uv-hourly) ────────────────────────── */
+.uv-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 18px;
+  color: rgba(15,23,42,.5);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.uv-divider::before,
+.uv-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(15,23,42,.1);
+}
+
+.uv-stats-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.uv-stat {
+  border-radius: 14px;
+  padding: 12px 8px;
+  background: rgba(14,165,233,.07);
+  border: 1px solid rgba(14,165,233,.15);
+  text-align: center;
+}
+.uv-stat--warn   { background: rgba(234,179,8,.09); border-color: rgba(234,179,8,.2); }
+.uv-stat--danger { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.18); }
+.uv-stat-val { font-size: 1.4rem; font-weight: 900; line-height: 1; margin-bottom: 4px; }
+.uv-stat-lbl { font-size: 0.72rem; color: rgba(15,23,42,.6); line-height: 1.3; }
+.uv-stat-lbl small { opacity: .8; }
+
+.uv-chart-block {
+  margin-bottom: 28px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(15,23,42,.06);
+}
+.uv-chart-hd { margin-bottom: 10px; }
+.uv-chart-title { font-size: 1rem; font-weight: 800; margin: 0 0 4px; }
+.uv-chart-cap {
+  font-size: 0.83rem;
+  color: rgba(15,23,42,.6);
+  margin: 0;
+  line-height: 1.45;
+}
+.uv-chart-surface {
+  width: 100%;
+  position: relative;
+  min-height: 260px;
+}
+.uv-data-source {
+  font-size: 0.75rem;
+  color: rgba(15,23,42,.4);
+  border-top: 1px solid rgba(15,23,42,.06);
+  padding-top: 10px;
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .uv-stats-row { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 560px) {
+  .uv-stats-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── City selector ─────────────────────────────────────────────── */
+.uv-city-section { margin-top: 4px; }
+
+.city-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.city-btn {
+  padding: 7px 16px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(99,102,241,.3);
+  background: rgba(99,102,241,.05);
+  color: rgba(15,23,42,.75);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.city-btn:hover {
+  border-color: #6366f1;
+  background: rgba(99,102,241,.12);
+  color: #4338ca;
+}
+.city-btn--active {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(99,102,241,.35);
+}
+
+.city-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 0;
+  color: rgba(15,23,42,.6);
+  font-size: 0.9rem;
+}
+.loading-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(99,102,241,.25);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Data source badge ─────────────────────────────────────────── */
+.data-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+.data-badge--real {
+  background: rgba(34, 197, 94, .1);
+  border: 1px solid rgba(34, 197, 94, .3);
+  color: #166534;
+}
+.data-badge--est {
+  background: rgba(234, 179, 8, .1);
+  border: 1px solid rgba(234, 179, 8, .3);
+  color: #854d0e;
+}
+
 </style>
