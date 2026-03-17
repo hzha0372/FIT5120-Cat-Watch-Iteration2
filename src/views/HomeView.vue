@@ -2,35 +2,77 @@
   <main class="home-shell" aria-label="Home">
     <section class="card enter" aria-labelledby="uv-title">
       <div class="card-head">
-        <h1 id="uv-title" class="card-title">UV Dashboard</h1>
+        <p class="pill">Realtime UV Safety</p>
+        <h1 id="uv-title" class="card-title">Check today’s UV by city or postcode</h1>
         <p class="card-caption">
-          Select a point on the map to load today’s hourly UV forecast (Open‑Meteo).
+          Type a city or postcode, then we’ll show today’s peak UV and protection guidance.
         </p>
       </div>
 
-      <div class="map-grid">
-        <div>
-          <Map v-model="mapLocation" height="420px" aria-label="Melbourne map" />
-          <div class="map-hint">
-            Selected: {{ mapLocation.center.lng.toFixed(4) }},
-            {{ mapLocation.center.lat.toFixed(4) }}
-          </div>
+      <form class="search" @submit.prevent="onSearch" aria-label="Search by city or postcode">
+        <div class="search-field">
+          <label class="sr-only" for="location-input">City or postcode</label>
+          <input
+            id="location-input"
+            v-model.trim="query"
+            type="text"
+            autocomplete="postal-code"
+            placeholder="e.g., 3000 or Melbourne"
+            @input="onQueryInput"
+            @keydown="onKeydown"
+            @blur="onBlur"
+            @focus="onFocus"
+            aria-autocomplete="list"
+            :aria-expanded="showSuggestions ? 'true' : 'false'"
+            aria-controls="location-suggestions"
+          />
+          <ul
+            v-if="showSuggestions"
+            id="location-suggestions"
+            class="suggestions"
+            role="listbox"
+            aria-label="Location suggestions"
+          >
+            <li
+              v-for="(item, index) in suggestions"
+              :key="item.id"
+              class="suggestion"
+              :class="{ active: index === activeIndex }"
+              role="option"
+              @mousedown.prevent="selectSuggestion(item)"
+            >
+              <span class="suggestion-name">{{ item.name }}</span>
+              <span class="suggestion-meta">{{ item.meta }}</span>
+            </li>
+          </ul>
+        </div>
+        <button class="search-btn" type="submit" :disabled="searching || loading">
+          {{ searching ? 'Finding…' : 'Check UV' }}
+        </button>
+      </form>
+
+      <div class="results">
+        <div v-if="location" class="location-chip">
+          {{ location.displayName }}
         </div>
 
         <div class="summary">
           <div class="metric">
             <div class="metric-label">Peak UV today</div>
             <div class="metric-value">{{ uvSummary ? uvSummary.peakUv : '—' }}</div>
-            <div v-if="uvSummary" class="metric-sub">{{ riskLabel }} risk</div>
+            <div v-if="uvSummary" class="metric-sub">
+              {{ riskLabel }} risk · {{ uvSummary.peakTime }}
+            </div>
           </div>
 
           <div v-if="uvSummary" class="mini" :class="alertClass" role="status" aria-live="polite">
             <div class="mini-title">{{ alertContent.title }}</div>
-            <div class="mini-text">
-              {{ homepageCopy }}
-            </div>
+            <div class="mini-text">{{ homepageCopy }}</div>
+            <div class="mini-text subtle">{{ alertContent.main }}</div>
           </div>
-          <div v-else class="placeholder">Click the map to load UV data.</div>
+          <div v-else class="placeholder">
+            Enter a city or postcode to see today’s UV level and advice.
+          </div>
 
           <p v-if="loading" class="status">Loading hourly UV…</p>
           <p v-else-if="errorMessage" class="error">{{ errorMessage }}</p>
@@ -41,13 +83,18 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue'
-import Map from '@/components/Map.vue'
+import { computed, nextTick, ref } from 'vue'
 
 const loading = ref(false)
+const searching = ref(false)
 const errorMessage = ref('')
-
-const mapLocation = ref({ center: { lng: 144.9631, lat: -37.8136 }, zoom: 11 })
+const query = ref('')
+const location = ref(null)
+const suggestions = ref([])
+const showSuggestions = ref(false)
+const activeIndex = ref(-1)
+let suggestionTimer = null
+let suggestionAbort = null
 
 const hourly = ref([])
 const parseHourly = (data) => {
@@ -82,6 +129,278 @@ const fetchHourlyUv = async (lat, lng) => {
     errorMessage.value = e?.message || 'Failed to load hourly UV.'
   } finally {
     loading.value = false
+  }
+}
+
+const buildGeoUrl = (searchTerm, count, countryCode) => {
+  const params = new URLSearchParams({
+    name: searchTerm,
+    count: String(count),
+    language: 'en',
+    format: 'json',
+  })
+  if (countryCode) params.set('countryCode', countryCode)
+  return `https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`
+}
+
+const isNumericQuery = (value) => /^\d+$/.test(value)
+
+const buildPostcodeUrl = (postcode, limit, countryCode) => {
+  const params = new URLSearchParams({
+    postalcode: postcode,
+    format: 'json',
+    addressdetails: '1',
+    limit: String(limit),
+  })
+  if (countryCode) params.set('countrycodes', countryCode.toLowerCase())
+  return `https://nominatim.openstreetmap.org/search?${params.toString()}`
+}
+
+const mapGeoResults = (results, searchTerm, preferPostcode) => {
+  const trimmed = searchTerm.trim()
+  const mapped = results.map((item) => {
+    const postcodes = Array.isArray(item.postcodes) ? item.postcodes : []
+    const matchedPostcode = postcodes.find((code) => code === trimmed) || ''
+    const metaParts = [item.admin1, item.country_code].filter(Boolean)
+    if (matchedPostcode) metaParts.unshift(`Postcode ${matchedPostcode}`)
+
+    return {
+      id: item.id,
+      name: item.name,
+      meta: metaParts.join(', '),
+      lat: item.latitude,
+      lng: item.longitude,
+      postcodes,
+    }
+  })
+
+  if (!preferPostcode) return mapped
+
+  const withPostcode = mapped.filter((item) => item.postcodes.includes(trimmed))
+  return withPostcode.length ? withPostcode : mapped
+}
+
+const mergeUniqueById = (primary, secondary) => {
+  const seen = new Set(primary.map((item) => item.id))
+  const merged = [...primary]
+  for (const item of secondary) {
+    if (!seen.has(item.id)) {
+      seen.add(item.id)
+      merged.push(item)
+    }
+  }
+  return merged
+}
+
+const mapPostcodeResults = (results, searchTerm) => {
+  const trimmed = searchTerm.trim()
+  return results.map((item) => {
+    const address = item.address || {}
+    const name =
+      address.suburb ||
+      address.town ||
+      address.city ||
+      address.village ||
+      item.display_name?.split(',')[0] ||
+      `Postcode ${trimmed}`
+    const metaParts = [
+      address.state,
+      address.country_code ? address.country_code.toUpperCase() : '',
+    ].filter(Boolean)
+    const meta = [`Postcode ${trimmed}`, ...metaParts].join(', ')
+    return {
+      id: item.place_id,
+      name,
+      meta,
+      lat: Number(item.lat),
+      lng: Number(item.lon),
+      postcodes: [trimmed],
+    }
+  })
+}
+
+const sortByRelevance = (list) => {
+  return list.sort((a, b) => {
+    const aAU = a.meta?.toLowerCase().includes('au')
+    const bAU = b.meta?.toLowerCase().includes('au')
+
+    if (aAU && !bAU) return -1
+    if (!aAU && bAU) return 1
+
+    if (a.name.toLowerCase() === query.value.toLowerCase()) return -1
+    if (b.name.toLowerCase() === query.value.toLowerCase()) return 1
+
+    return 0
+  })
+}
+const fetchLocation = async (searchTerm) => {
+  searching.value = true
+  errorMessage.value = ''
+  location.value = null
+  hourly.value = []
+
+  try {
+    const trimmed = searchTerm.trim()
+    const preferPostcode = isNumericQuery(trimmed)
+
+    let mapped = []
+
+    if (preferPostcode) {
+      const primaryResponse = await fetch(buildPostcodeUrl(trimmed, 5, 'au'))
+      const primaryData = await primaryResponse.json()
+      const primaryResults = Array.isArray(primaryData) ? primaryData : []
+
+      let combinedResults = primaryResults
+      if (!combinedResults.length) {
+        const fallbackResponse = await fetch(buildPostcodeUrl(trimmed, 5, ''))
+        const fallbackData = await fallbackResponse.json()
+        const fallbackResults = Array.isArray(fallbackData) ? fallbackData : []
+        combinedResults = mergeUniqueById(primaryResults, fallbackResults)
+      }
+
+      mapped = mapPostcodeResults(combinedResults, trimmed)
+    } else {
+      const [auRes, globalRes] = await Promise.all([
+        fetch(buildGeoUrl(trimmed, 5, 'au')),
+        fetch(buildGeoUrl(trimmed, 5, '')),
+      ])
+
+      const auData = await auRes.json()
+      const globalData = await globalRes.json()
+
+      const auResults = Array.isArray(auData?.results) ? auData.results : []
+      const globalResults = Array.isArray(globalData?.results) ? globalData.results : []
+
+      const mappedAu = mapGeoResults(auResults, trimmed, false)
+      const mappedGlobal = mapGeoResults(globalResults, trimmed, false)
+
+      mapped = sortByRelevance(mergeUniqueById(mappedAu, mappedGlobal))
+    }
+
+    const result = mapped[0]
+    if (!result) {
+      throw new Error('No matching city or postcode found.')
+    }
+
+    location.value = {
+      displayName: [result.name, result.meta].filter(Boolean).join(', '),
+      lat: result.lat,
+      lng: result.lng,
+    }
+    await fetchHourlyUv(result.lat, result.lng)
+  } catch (e) {
+    errorMessage.value = e?.message || 'Unable to find that location.'
+  } finally {
+    searching.value = false
+  }
+}
+
+const fetchSuggestions = async (searchTerm) => {
+  if (suggestionAbort) suggestionAbort.abort()
+  suggestionAbort = new AbortController()
+
+  try {
+    const trimmed = searchTerm.trim()
+    const preferPostcode = isNumericQuery(trimmed)
+
+    if (preferPostcode) {
+      const primaryResponse = await fetch(buildPostcodeUrl(trimmed, 8, 'au'), {
+        signal: suggestionAbort.signal,
+      })
+      const primaryData = await primaryResponse.json()
+      const primaryResults = Array.isArray(primaryData) ? primaryData : []
+
+      let combinedResults = primaryResults
+      if (!combinedResults.length) {
+        const fallbackResponse = await fetch(buildPostcodeUrl(trimmed, 8, ''), {
+          signal: suggestionAbort.signal,
+        })
+        const fallbackData = await fallbackResponse.json()
+        const fallbackResults = Array.isArray(fallbackData) ? fallbackData : []
+        combinedResults = mergeUniqueById(primaryResults, fallbackResults)
+      }
+
+      suggestions.value = mapPostcodeResults(combinedResults, trimmed)
+    } else {
+      const [auRes, globalRes] = await Promise.all([
+        fetch(buildGeoUrl(trimmed, 8, 'au'), { signal: suggestionAbort.signal }),
+        fetch(buildGeoUrl(trimmed, 8, ''), { signal: suggestionAbort.signal }),
+      ])
+
+      const auData = await auRes.json()
+      const globalData = await globalRes.json()
+
+      const auResults = Array.isArray(auData?.results) ? auData.results : []
+      const globalResults = Array.isArray(globalData?.results) ? globalData.results : []
+
+      const mappedAu = mapGeoResults(auResults, trimmed, false)
+      const mappedGlobal = mapGeoResults(globalResults, trimmed, false)
+
+      suggestions.value = sortByRelevance(mergeUniqueById(mappedAu, mappedGlobal))
+    }
+
+    showSuggestions.value = suggestions.value.length > 0
+    activeIndex.value = -1
+  } catch (e) {
+    if (e?.name === 'AbortError') return
+    suggestions.value = []
+    showSuggestions.value = false
+  }
+}
+
+const onQueryInput = () => {
+  const value = query.value.trim()
+  errorMessage.value = ''
+  if (suggestionTimer) window.clearTimeout(suggestionTimer)
+  if (value.length < 2) {
+    suggestions.value = []
+    showSuggestions.value = false
+    return
+  }
+  suggestionTimer = window.setTimeout(() => {
+    fetchSuggestions(value)
+  }, 240)
+}
+
+const selectSuggestion = async (item) => {
+  query.value = item.name
+  suggestions.value = []
+  showSuggestions.value = false
+  activeIndex.value = -1
+  location.value = {
+    displayName: [item.name, item.meta].filter(Boolean).join(', '),
+    lat: item.lat,
+    lng: item.lng,
+  }
+  await fetchHourlyUv(item.lat, item.lng)
+}
+
+const onKeydown = async (event) => {
+  if (!showSuggestions.value || !suggestions.value.length) return
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    activeIndex.value = (activeIndex.value + 1) % suggestions.value.length
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    activeIndex.value =
+      activeIndex.value <= 0 ? suggestions.value.length - 1 : activeIndex.value - 1
+  } else if (event.key === 'Enter' && activeIndex.value >= 0) {
+    event.preventDefault()
+    await selectSuggestion(suggestions.value[activeIndex.value])
+  } else if (event.key === 'Escape') {
+    showSuggestions.value = false
+  }
+}
+
+const onBlur = () => {
+  window.setTimeout(() => {
+    showSuggestions.value = false
+  }, 120)
+}
+
+const onFocus = () => {
+  if (suggestions.value.length) {
+    showSuggestions.value = true
   }
 }
 
@@ -182,31 +501,35 @@ const homepageCopy = computed(() => {
   return 'UV is very high to extreme. Skin damage can occur quickly—avoid peak sun and protect immediately.'
 })
 
-watch(
-  () => ({ lng: mapLocation.value.center.lng, lat: mapLocation.value.center.lat }),
-  async ({ lng, lat }) => {
-    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return
-    await fetchHourlyUv(lat, lng)
-  },
-  { deep: true, immediate: true },
-)
+const onSearch = async () => {
+  const value = query.value.trim()
+  if (!value) {
+    errorMessage.value = 'Please enter a city or postcode.'
+    return
+  }
+
+  showSuggestions.value = false
+  await fetchLocation(value)
+}
 </script>
 
 <style scoped>
 .home-shell {
-  max-width: 1100px;
+  max-width: 1020px;
   margin: 0 auto;
-  padding: 22px;
+  padding: 26px 22px 40px;
   display: grid;
-  gap: 16px;
+  gap: 18px;
+  color: #0f172a;
 }
 
 .card {
   border-radius: 18px;
-  background: #fff;
+  background:
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.18), transparent 50%), #ffffff;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
-  padding: 16px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  padding: 20px;
   transition:
     transform 160ms ease,
     box-shadow 160ms ease;
@@ -223,7 +546,8 @@ watch(
 
 .card-title {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: clamp(1.6rem, 2vw, 2rem);
+  letter-spacing: -0.02em;
 }
 
 .card-caption {
@@ -231,20 +555,126 @@ watch(
   color: rgba(15, 23, 42, 0.65);
 }
 
-.map-grid {
-  display: grid;
-  grid-template-columns: 1.35fr 0.65fr;
-  gap: 12px;
-  align-items: start;
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(14, 116, 144, 0.12);
+  color: #0e7490;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.map-hint {
-  margin-top: 10px;
-  color: rgba(15, 23, 42, 0.65);
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
-  font-size: 0.9rem;
+.search {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.search-field input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #fff;
+  font-size: 1rem;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.search-field {
+  position: relative;
+}
+
+.suggestions {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+}
+
+.suggestion {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: rgba(15, 23, 42, 0.9);
+}
+
+.suggestion.active,
+.suggestion:hover {
+  background: rgba(14, 116, 144, 0.12);
+}
+
+.suggestion-name {
+  font-weight: 700;
+}
+
+.suggestion-meta {
+  color: rgba(15, 23, 42, 0.55);
+  font-size: 0.85rem;
+}
+
+.search-field input:focus {
+  outline: 2px solid rgba(14, 116, 144, 0.35);
+  border-color: rgba(14, 116, 144, 0.55);
+}
+
+.search-btn {
+  padding: 12px 18px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #0ea5e9, #14b8a6);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+  box-shadow: 0 10px 18px rgba(14, 116, 144, 0.25);
+}
+
+.search-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  box-shadow: none;
+}
+
+.search-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(14, 116, 144, 0.3);
+}
+
+.results {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.location-chip {
+  align-self: start;
+  justify-self: start;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: rgba(15, 23, 42, 0.75);
+  font-weight: 700;
+  font-size: 0.85rem;
 }
 
 .metric {
@@ -289,6 +719,11 @@ watch(
   line-height: 1.55;
 }
 
+.mini-text.subtle {
+  color: rgba(15, 23, 42, 0.7);
+  font-size: 0.95rem;
+}
+
 .alert--low {
   background: rgba(34, 197, 94, 0.1);
 }
@@ -328,9 +763,20 @@ watch(
 }
 
 @media (max-width: 1080px) {
-  .map-grid {
+  .search {
     grid-template-columns: 1fr;
   }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .enter {
