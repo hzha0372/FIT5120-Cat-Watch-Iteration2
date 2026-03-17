@@ -1,3 +1,7 @@
+import dotenv from 'dotenv'
+
+dotenv.config()
+
 export default async function handler(req, res) {
   try {
     const apiKey = process.env.OPENWEATHER_API_KEY
