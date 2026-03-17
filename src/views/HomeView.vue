@@ -98,19 +98,17 @@ let suggestionAbort = null
 
 const hourly = ref([])
 const parseHourly = (data) => {
-  const times = data?.hourly?.time
-  const uvs = data?.hourly?.uv_index
-
-  if (!Array.isArray(times) || !Array.isArray(uvs) || times.length !== uvs.length) {
+  const items = data?.hourly
+  if (!Array.isArray(items) || !items.length) {
     throw new Error('Hourly UV data not available for this location.')
   }
 
-  return times
-    .map((t, i) => ({
-      time: new Date(t),
-      uv: typeof uvs[i] === 'number' ? uvs[i] : Number(uvs[i]),
+  return items
+    .map((item) => ({
+      time: item?.time ? new Date(item.time) : null,
+      uv: typeof item?.uv === 'number' ? item.uv : Number(item?.uv),
     }))
-    .filter((d) => Number.isFinite(d.uv))
+    .filter((d) => d.time instanceof Date && !Number.isNaN(d.time) && Number.isFinite(d.uv))
 }
 
 const fetchHourlyUv = async (lat, lng) => {
@@ -118,10 +116,12 @@ const fetchHourlyUv = async (lat, lng) => {
   errorMessage.value = ''
 
   try {
-    const response = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=uv_index&forecast_days=1&timezone=auto`,
-    )
+    const params = new URLSearchParams({ lat: String(lat), lon: String(lng) })
+    const response = await fetch(`/api/uv?${params.toString()}`)
     const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data?.error || 'Failed to load hourly UV.')
+    }
     hourly.value = parseHourly(data)
     await nextTick()
   } catch (e) {
@@ -132,107 +132,7 @@ const fetchHourlyUv = async (lat, lng) => {
   }
 }
 
-const buildGeoUrl = (searchTerm, count, countryCode) => {
-  const params = new URLSearchParams({
-    name: searchTerm,
-    count: String(count),
-    language: 'en',
-    format: 'json',
-  })
-  if (countryCode) params.set('countryCode', countryCode)
-  return `https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`
-}
-
 const isNumericQuery = (value) => /^\d+$/.test(value)
-
-const buildPostcodeUrl = (postcode, limit, countryCode) => {
-  const params = new URLSearchParams({
-    postalcode: postcode,
-    format: 'json',
-    addressdetails: '1',
-    limit: String(limit),
-  })
-  if (countryCode) params.set('countrycodes', countryCode.toLowerCase())
-  return `https://nominatim.openstreetmap.org/search?${params.toString()}`
-}
-
-const mapGeoResults = (results, searchTerm, preferPostcode) => {
-  const trimmed = searchTerm.trim()
-  const mapped = results.map((item) => {
-    const postcodes = Array.isArray(item.postcodes) ? item.postcodes : []
-    const matchedPostcode = postcodes.find((code) => code === trimmed) || ''
-    const metaParts = [item.admin1, item.country_code].filter(Boolean)
-    if (matchedPostcode) metaParts.unshift(`Postcode ${matchedPostcode}`)
-
-    return {
-      id: item.id,
-      name: item.name,
-      meta: metaParts.join(', '),
-      lat: item.latitude,
-      lng: item.longitude,
-      postcodes,
-    }
-  })
-
-  if (!preferPostcode) return mapped
-
-  const withPostcode = mapped.filter((item) => item.postcodes.includes(trimmed))
-  return withPostcode.length ? withPostcode : mapped
-}
-
-const mergeUniqueById = (primary, secondary) => {
-  const seen = new Set(primary.map((item) => item.id))
-  const merged = [...primary]
-  for (const item of secondary) {
-    if (!seen.has(item.id)) {
-      seen.add(item.id)
-      merged.push(item)
-    }
-  }
-  return merged
-}
-
-const mapPostcodeResults = (results, searchTerm) => {
-  const trimmed = searchTerm.trim()
-  return results.map((item) => {
-    const address = item.address || {}
-    const name =
-      address.suburb ||
-      address.town ||
-      address.city ||
-      address.village ||
-      item.display_name?.split(',')[0] ||
-      `Postcode ${trimmed}`
-    const metaParts = [
-      address.state,
-      address.country_code ? address.country_code.toUpperCase() : '',
-    ].filter(Boolean)
-    const meta = [`Postcode ${trimmed}`, ...metaParts].join(', ')
-    return {
-      id: item.place_id,
-      name,
-      meta,
-      lat: Number(item.lat),
-      lng: Number(item.lon),
-      postcodes: [trimmed],
-    }
-  })
-}
-
-const sortByRelevance = (list) => {
-  return list.sort((a, b) => {
-    const aAU = a.meta?.toLowerCase().includes('au')
-    const bAU = b.meta?.toLowerCase().includes('au')
-
-    if (aAU && !bAU) return -1
-    if (!aAU && bAU) return 1
-
-    if (a.name.toLowerCase() === query.value.toLowerCase()) return -1
-    if (b.name.toLowerCase() === query.value.toLowerCase()) return 1
-
-    return 0
-  })
-}
 const fetchLocation = async (searchTerm) => {
   searching.value = true
   errorMessage.value = ''
@@ -241,47 +141,19 @@ const fetchLocation = async (searchTerm) => {
 
   try {
     const trimmed = searchTerm.trim()
-    const preferPostcode = isNumericQuery(trimmed)
-
-    let mapped = []
-
-    if (preferPostcode) {
-      const primaryResponse = await fetch(buildPostcodeUrl(trimmed, 5, 'au'))
-      const primaryData = await primaryResponse.json()
-      const primaryResults = Array.isArray(primaryData) ? primaryData : []
-
-      let combinedResults = primaryResults
-      if (!combinedResults.length) {
-        const fallbackResponse = await fetch(buildPostcodeUrl(trimmed, 5, ''))
-        const fallbackData = await fallbackResponse.json()
-        const fallbackResults = Array.isArray(fallbackData) ? fallbackData : []
-        combinedResults = mergeUniqueById(primaryResults, fallbackResults)
-      }
-
-      mapped = mapPostcodeResults(combinedResults, trimmed)
-    } else {
-      const [auRes, globalRes] = await Promise.all([
-        fetch(buildGeoUrl(trimmed, 5, 'au')),
-        fetch(buildGeoUrl(trimmed, 5, '')),
-      ])
-
-      const auData = await auRes.json()
-      const globalData = await globalRes.json()
-
-      const auResults = Array.isArray(auData?.results) ? auData.results : []
-      const globalResults = Array.isArray(globalData?.results) ? globalData.results : []
-
-      const mappedAu = mapGeoResults(auResults, trimmed, false)
-      const mappedGlobal = mapGeoResults(globalResults, trimmed, false)
-
-      mapped = sortByRelevance(mergeUniqueById(mappedAu, mappedGlobal))
+    const params = new URLSearchParams({ q: trimmed, limit: '5' })
+    const response = await fetch(`/api/geocode?${params.toString()}`)
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data?.error || 'Unable to find that location.')
     }
 
-    const result = mapped[0]
-    if (!result) {
-      throw new Error('No matching city or postcode found.')
+    const results = Array.isArray(data?.results) ? data.results : []
+    if (!results.length) {
+      throw new Error('No matching locations found.')
     }
 
+    const result = results[0]
     location.value = {
       displayName: [result.name, result.meta].filter(Boolean).join(', '),
       lat: result.lat,
@@ -301,43 +173,23 @@ const fetchSuggestions = async (searchTerm) => {
 
   try {
     const trimmed = searchTerm.trim()
-    const preferPostcode = isNumericQuery(trimmed)
-
-    if (preferPostcode) {
-      const primaryResponse = await fetch(buildPostcodeUrl(trimmed, 8, 'au'), {
-        signal: suggestionAbort.signal,
-      })
-      const primaryData = await primaryResponse.json()
-      const primaryResults = Array.isArray(primaryData) ? primaryData : []
-
-      let combinedResults = primaryResults
-      if (!combinedResults.length) {
-        const fallbackResponse = await fetch(buildPostcodeUrl(trimmed, 8, ''), {
-          signal: suggestionAbort.signal,
-        })
-        const fallbackData = await fallbackResponse.json()
-        const fallbackResults = Array.isArray(fallbackData) ? fallbackData : []
-        combinedResults = mergeUniqueById(primaryResults, fallbackResults)
-      }
-
-      suggestions.value = mapPostcodeResults(combinedResults, trimmed)
-    } else {
-      const [auRes, globalRes] = await Promise.all([
-        fetch(buildGeoUrl(trimmed, 8, 'au'), { signal: suggestionAbort.signal }),
-        fetch(buildGeoUrl(trimmed, 8, ''), { signal: suggestionAbort.signal }),
-      ])
-
-      const auData = await auRes.json()
-      const globalData = await globalRes.json()
-
-      const auResults = Array.isArray(auData?.results) ? auData.results : []
-      const globalResults = Array.isArray(globalData?.results) ? globalData.results : []
-
-      const mappedAu = mapGeoResults(auResults, trimmed, false)
-      const mappedGlobal = mapGeoResults(globalResults, trimmed, false)
-
-      suggestions.value = sortByRelevance(mergeUniqueById(mappedAu, mappedGlobal))
+    const params = new URLSearchParams({ q: trimmed, limit: '8' })
+    const response = await fetch(`/api/geocode?${params.toString()}`, {
+      signal: suggestionAbort.signal,
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(data?.error || 'Unable to find that location.')
     }
+
+    const results = Array.isArray(data?.results) ? data.results : []
+    suggestions.value = results.map((item) => ({
+      id: item.id,
+      name: item.name,
+      meta: item.meta,
+      lat: item.lat,
+      lng: item.lng,
+    }))
 
     showSuggestions.value = suggestions.value.length > 0
     activeIndex.value = -1

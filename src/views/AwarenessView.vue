@@ -504,21 +504,44 @@ const summary = computed(() => {
 })
 
 const parseHourly = (data) => {
-  const times = data?.hourly?.time
-  const uvs = data?.hourly?.uv_index
-  if (!Array.isArray(times) || !Array.isArray(uvs)) throw new Error('UV data unavailable.')
-  return times.map((t, i) => ({ time: new Date(t), uv: Number(uvs[i]) })).filter((d) => Number.isFinite(d.uv))
+  const items = data?.hourly
+  if (!Array.isArray(items) || !items.length) {
+    throw new Error('Hourly UV data not available for this location.')
+  }
+
+  return items
+    .map((item) => ({
+      time: item?.time ? new Date(item.time) : null,
+      uv: typeof item?.uv === 'number' ? item.uv : Number(item?.uv),
+    }))
+    .filter((d) => d.time instanceof Date && !Number.isNaN(d.time) && Number.isFinite(d.uv))
 }
 
-const fetchHourlyUvForCoordinates = async (lat, lon, label) => {
-  loading.value = true; errorMessage.value = ''
+const fetchHourlyUvForCoordinates = async (latitude, longitude, label) => {
+  loading.value = true
+  errorMessage.value = ''
+
   try {
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=uv_index&forecast_days=1&timezone=auto`)
-    hourly.value = parseHourly(await res.json())
+    const params = new URLSearchParams({ lat: String(latitude), lon: String(longitude) })
+    const response = await fetch(`/api/uv?${params.toString()}`)
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data?.error || 'Failed to load hourly UV data.')
+    }
+
+    hourly.value = parseHourly(data)
     locationLabel.value = label
-    await nextTick(); drawChart()
-  } catch (e) { hourly.value = []; errorMessage.value = e.message || 'Failed to load UV data.' }
-  finally { loading.value = false }
+
+    await nextTick()
+    drawChart()
+  } catch (error) {
+    hourly.value = []
+    locationLabel.value = ''
+    errorMessage.value = error?.message || 'Failed to load hourly UV data.'
+  } finally {
+    loading.value = false
+  }
 }
 
 const useCurrentLocation = () => {
@@ -535,10 +558,16 @@ const searchByPostcode = async () => {
   if (!/^\d{4}$/.test(postcode.value)) { errorMessage.value = 'Enter a valid 4-digit postcode.'; return }
   loading.value = true; errorMessage.value = ''
   try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?postalcode=${postcode.value}&country=AU&format=json&limit=1`)
-    const data = await res.json()
-    if (!data.length) throw new Error('Postcode not found.')
-    await fetchHourlyUvForCoordinates(+data[0].lat, +data[0].lon, data[0].display_name.split(',')[0])
+    const params = new URLSearchParams({ q: postcode.value, limit: '1' })
+    const res = await fetch(`/api/geocode?${params.toString()}`)
+    const payload = await res.json()
+    if (!res.ok) throw new Error(payload?.error || 'Postcode not found.')
+
+    const results = Array.isArray(payload?.results) ? payload.results : []
+    if (!results.length) throw new Error('Postcode not found.')
+
+    const top = results[0]
+    await fetchHourlyUvForCoordinates(Number(top.lat), Number(top.lng), top.name || `Postcode ${postcode.value}`)
   } catch (e) { loading.value = false; errorMessage.value = e.message }
 }
 
