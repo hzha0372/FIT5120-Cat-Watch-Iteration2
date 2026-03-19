@@ -28,6 +28,23 @@ const normalizeText = (value) =>
     .replace(/\s+/g, ' ')
     .trim()
 
+const inferPlaceKind = (featureCode) => {
+  const code = String(featureCode || '').toUpperCase()
+  if (!code) return 'unknown'
+  if (code === 'PPLC' || code.startsWith('PPLA')) return 'city'
+  if (code.startsWith('PPL')) return 'suburb'
+  if (code.startsWith('ADM')) return 'suburb'
+  return 'unknown'
+}
+
+const toPublicResult = (item) => ({
+  id: item.id,
+  name: item.name,
+  meta: item.meta,
+  lat: item.lat,
+  lng: item.lng,
+})
+
 const levenshtein = (a, b) => {
   if (a === b) return 0
   if (!a.length) return b.length
@@ -75,6 +92,8 @@ const mapOpenWeatherResults = (items) =>
         meta: metaParts.join(', '),
         lat: item.lat,
         lng: item.lon,
+        _country: item.country || '',
+        _kind: 'unknown',
       }
     })
 
@@ -89,6 +108,8 @@ const mapOpenMeteoResults = (payload) =>
         meta: metaParts.join(', '),
         lat: item.latitude,
         lng: item.longitude,
+        _country: item.country_code || item.country || '',
+        _kind: inferPlaceKind(item.feature_code),
       }
     })
 
@@ -108,12 +129,15 @@ const searchOpenWeatherDirect = async ({ q, limit, apiKey }) => {
   }
 }
 
-const searchOpenMeteo = async ({ q, limit }) => {
+const searchOpenMeteo = async ({ q, limit, countryCode }) => {
   const url = new URL('https://geocoding-api.open-meteo.com/v1/search')
   url.searchParams.set('name', q)
   url.searchParams.set('count', String(limit))
   url.searchParams.set('language', 'en')
   url.searchParams.set('format', 'json')
+  if (countryCode) {
+    url.searchParams.set('countryCode', countryCode)
+  }
 
   try {
     const payload = await safeFetchJson(url)
@@ -146,15 +170,45 @@ const buildRelaxedQuery = (q) => {
   return ''
 }
 
-const rankByQuery = (items, q) => {
+const shouldPreferAustralianSuburb = (items, q) => {
+  const normalizedQuery = normalizeText(q)
+  if (!normalizedQuery) return false
+
+  const queryTokens = normalizedQuery.split(' ').filter(Boolean)
+  const isShortKeyword = queryTokens.length <= 2 && normalizedQuery.length >= 3
+
+  const hasCityPrefixMatch = items.some(
+    (item) => item?._kind === 'city' && normalizeText(item.name).startsWith(normalizedQuery),
+  )
+  const hasSuburbPrefixMatch = items.some(
+    (item) => item?._kind === 'suburb' && normalizeText(item.name).startsWith(normalizedQuery),
+  )
+  const exactNameMatches = items.filter((item) => normalizeText(item?.name) === normalizedQuery)
+  const hasAustraliaExactMatch = exactNameMatches.some((item) => {
+    const countryNorm = normalizeText(item?._country)
+    return countryNorm === 'au' || countryNorm === 'australia'
+  })
+
+  // Fallback for places often tagged as locality/city (e.g. Clayton):
+  // when many identical-name hits exist and one is Australian, treat as suburb-like.
+  const looksLikeSuburbKeyword =
+    isShortKeyword && exactNameMatches.length >= 3 && hasAustraliaExactMatch
+
+  return (hasSuburbPrefixMatch && !hasCityPrefixMatch) || looksLikeSuburbKeyword
+}
+
+const rankByQuery = (items, q, options = {}) => {
   const normalizedQuery = normalizeText(q)
   if (!normalizedQuery) return items
+  const preferAustralianSuburb = Boolean(options.preferAustralianSuburb)
 
   return [...items]
     .map((item) => {
       const nameNorm = normalizeText(item.name)
       const metaNorm = normalizeText(item.meta)
       const full = `${nameNorm} ${metaNorm}`.trim()
+      const countryNorm = normalizeText(item._country)
+      const isAustralia = countryNorm === 'au' || countryNorm === 'australia'
 
       let score = 0
       if (nameNorm === normalizedQuery) score += 120
@@ -165,6 +219,11 @@ const rankByQuery = (items, q) => {
       const tolerance = Math.max(1, Math.floor(normalizedQuery.length * 0.35))
       if (dist <= tolerance) score += 55 - dist * 10
 
+      if (preferAustralianSuburb && isAustralia) {
+        score += 22
+        if (item._kind === 'suburb') score += 8
+        if (nameNorm === normalizedQuery) score += 10
+      }
       if (!nameNorm.includes(' ')) score += 2
 
       return { item, score }
@@ -214,12 +273,22 @@ export default async function handler(req, res) {
         ]
       }
     } else {
-      const [openWeatherResults, openMeteoResults] = await Promise.all([
+      const auProbeLimit = Math.max(limit, 8)
+      const [openWeatherResults, openMeteoResults, openWeatherAuResults, openMeteoAuResults] =
+        await Promise.all([
         searchOpenWeatherDirect({ q, limit, apiKey }),
         searchOpenMeteo({ q, limit }),
+        searchOpenWeatherDirect({ q: `${q},AU`, limit: auProbeLimit, apiKey }),
+        searchOpenMeteo({ q, limit: auProbeLimit, countryCode: 'au' }),
       ])
 
-      results = dedupeById([...openWeatherResults, ...openMeteoResults])
+      results = dedupeById([
+        ...openWeatherResults,
+        ...openMeteoResults,
+        ...openWeatherAuResults,
+        ...openMeteoAuResults,
+      ])
+      const preferAustralianSuburb = shouldPreferAustralianSuburb(results, q)
 
       const relaxedQuery = buildRelaxedQuery(q)
       if (!results.length && relaxedQuery) {
@@ -227,13 +296,18 @@ export default async function handler(req, res) {
           q: relaxedQuery,
           limit: Math.max(limit * 2, 10),
         })
-        results = rankByQuery(relaxedCandidates, q).slice(0, limit)
+        const preferForRelaxed = shouldPreferAustralianSuburb(relaxedCandidates, q)
+        results = rankByQuery(relaxedCandidates, q, {
+          preferAustralianSuburb: preferForRelaxed,
+        }).slice(0, limit)
       } else {
-        results = rankByQuery(results, q).slice(0, limit)
+        results = rankByQuery(results, q, {
+          preferAustralianSuburb,
+        }).slice(0, limit)
       }
     }
 
-    res.status(200).json({ results })
+    res.status(200).json({ results: results.map(toPublicResult) })
   } catch (e) {
     res.status(500).json({ error: e?.message || 'Unexpected error' })
   }
