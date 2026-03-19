@@ -132,7 +132,33 @@ const fetchHourlyUv = async (lat, lng) => {
   }
 }
 
-const isNumericQuery = (value) => /^\d+$/.test(value)
+const formatDisplayName = (name, meta) => {
+  const nameText = String(name || '').trim()
+  const metaText = String(meta || '').trim()
+  const tokens = [nameText, metaText]
+    .flatMap((value) => value.split(','))
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  if (!tokens.length) return ''
+
+  const seen = new Set()
+  const deduped = tokens.filter((part) => {
+    const key = part.toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  const postcodeIndex = deduped.findIndex((part) => /^\d{4,6}$/.test(part))
+  if (postcodeIndex > 0) {
+    const [postcode] = deduped.splice(postcodeIndex, 1)
+    deduped.unshift(postcode)
+  }
+
+  return deduped.join(', ')
+}
+
 const fetchLocation = async (searchTerm) => {
   searching.value = true
   errorMessage.value = ''
@@ -155,7 +181,7 @@ const fetchLocation = async (searchTerm) => {
 
     const result = results[0]
     location.value = {
-      displayName: [result.name, result.meta].filter(Boolean).join(', '),
+      displayName: formatDisplayName(result.name, result.meta),
       lat: result.lat,
       lng: result.lng,
     }
@@ -220,7 +246,7 @@ const selectSuggestion = async (item) => {
   showSuggestions.value = false
   activeIndex.value = -1
   location.value = {
-    displayName: [item.name, item.meta].filter(Boolean).join(', '),
+    displayName: formatDisplayName(item.name, item.meta),
     lat: item.lat,
     lng: item.lng,
   }

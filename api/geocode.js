@@ -129,6 +129,35 @@ const searchOpenWeatherDirect = async ({ q, limit, apiKey }) => {
   }
 }
 
+const searchOpenWeatherZip = async ({ q, apiKey, countryCode }) => {
+  if (!apiKey) return []
+
+  const normalized = String(q || '').trim()
+  if (!normalized) return []
+
+  const url = new URL('https://api.openweathermap.org/geo/1.0/zip')
+  url.searchParams.set('zip', countryCode ? `${normalized},${countryCode}` : normalized)
+  url.searchParams.set('appid', apiKey)
+
+  try {
+    const payload = await safeFetchJson(url)
+    if (!payload || typeof payload.lat !== 'number' || typeof payload.lon !== 'number') return []
+    return [
+      {
+        id: `${payload.lat},${payload.lon}`,
+        name: payload.name || normalized,
+        meta: `Postcode ${normalized}, ${payload.country || countryCode || ''}`.replace(/,\s*$/, ''),
+        lat: payload.lat,
+        lng: payload.lon,
+        _country: payload.country || countryCode || '',
+        _kind: 'suburb',
+      },
+    ]
+  } catch {
+    return []
+  }
+}
+
 const searchOpenMeteo = async ({ q, limit, countryCode }) => {
   const url = new URL('https://geocoding-api.open-meteo.com/v1/search')
   url.searchParams.set('name', q)
@@ -145,6 +174,81 @@ const searchOpenMeteo = async ({ q, limit, countryCode }) => {
   } catch {
     return []
   }
+}
+
+const mapMapboxFeatures = (payload, q) =>
+  (Array.isArray(payload?.features) ? payload.features : [])
+    .filter((feature) => Array.isArray(feature?.center) && feature.center.length >= 2)
+    .map((feature) => {
+      const context = Array.isArray(feature.context) ? feature.context : []
+      const findCtx = (prefix) =>
+        context.find((entry) => String(entry?.id || '').startsWith(`${prefix}.`))
+      const locality = findCtx('locality')?.text || findCtx('place')?.text
+      const countryShort = String(findCtx('country')?.short_code || '')
+        .replace(/^country-/, '')
+        .toUpperCase()
+      const countryText = findCtx('country')?.text || ''
+      const country = countryShort || countryText
+      const displayName = locality || feature.text || String(q)
+
+      return {
+        id: String(feature.id || `${feature.center[1]},${feature.center[0]}`),
+        name: displayName,
+        meta: String(feature.place_name || '').trim() || [country].filter(Boolean).join(', '),
+        lat: Number(feature.center[1]),
+        lng: Number(feature.center[0]),
+        _country: country || countryText,
+        _kind: 'suburb',
+      }
+    })
+
+const searchMapboxPostcode = async ({ q, limit, token, countryCode }) => {
+  if (!token) return []
+
+  const url = new URL(
+    `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(String(q || '').trim())}.json`,
+  )
+  url.searchParams.set('types', 'postcode,locality,address,place')
+  url.searchParams.set('autocomplete', 'true')
+  url.searchParams.set('limit', String(limit))
+  if (countryCode) url.searchParams.set('country', countryCode)
+  url.searchParams.set('access_token', token)
+
+  try {
+    const payload = await safeFetchJson(url)
+    return mapMapboxFeatures(payload, q)
+  } catch {
+    return []
+  }
+}
+
+const rankNumericByQuery = (items, q) => {
+  const normalizedQuery = normalizeText(q)
+  if (!normalizedQuery) return items
+
+  return [...items]
+    .map((item) => {
+      const nameNorm = normalizeText(item.name)
+      const metaNorm = normalizeText(item.meta)
+      const countryNorm = normalizeText(item._country)
+      const isAustralia = countryNorm === 'au' || countryNorm === 'australia'
+      const exactPostcodeMatch =
+        metaNorm.includes(` ${normalizedQuery} `) ||
+        metaNorm.endsWith(` ${normalizedQuery}`) ||
+        metaNorm.includes(normalizedQuery)
+
+      let score = 0
+      if (exactPostcodeMatch) score += 120
+      if (isAustralia && /^\d{4}$/.test(normalizedQuery)) score += 45
+      if (item._kind === 'suburb') score += 10
+      if (nameNorm && nameNorm !== 'melbourne' && nameNorm !== 'sydney') score += 8
+      if (nameNorm === normalizedQuery) score += 5
+
+      return { item, score }
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(({ item }) => item)
 }
 
 const buildRelaxedQuery = (q) => {
@@ -236,6 +340,7 @@ const rankByQuery = (items, q, options = {}) => {
 export default async function handler(req, res) {
   try {
     const apiKey = process.env.OPENWEATHER_API_KEY
+    const mapboxToken = process.env.MAPBOX_TOKEN || process.env.VITE_MAPBOX_TOKEN
 
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : ''
     const limitRaw = typeof req.query.limit === 'string' ? req.query.limit : ''
@@ -251,27 +356,21 @@ export default async function handler(req, res) {
     let results = []
 
     if (isNumeric) {
-      if (!apiKey) {
-        res.status(500).json({ error: 'Missing OPENWEATHER_API_KEY' })
-        return
-      }
+      const numericLimit = Math.max(limit, 6)
+      const isLikelyAuPostcode = /^\d{4}$/.test(q)
+      const [mapboxAu, mapboxGlobal, openWeatherAuZip] = await Promise.all([
+        searchMapboxPostcode({
+          q,
+          limit: numericLimit,
+          token: mapboxToken,
+          countryCode: isLikelyAuPostcode ? 'au' : undefined,
+        }),
+        searchMapboxPostcode({ q, limit: numericLimit, token: mapboxToken }),
+        searchOpenWeatherZip({ q, apiKey, countryCode: 'AU' }),
+      ])
 
-      const url = new URL('https://api.openweathermap.org/geo/1.0/zip')
-      url.searchParams.set('zip', `${q},AU`)
-      url.searchParams.set('appid', apiKey)
-
-      const payload = await safeFetchJson(url)
-      if (payload && typeof payload.lat === 'number' && typeof payload.lon === 'number') {
-        results = [
-          {
-            id: `${payload.lat},${payload.lon}`,
-            name: payload.name || q,
-            meta: `Postcode ${q}, ${payload.country || 'AU'}`,
-            lat: payload.lat,
-            lng: payload.lon,
-          },
-        ]
-      }
+      results = dedupeById([...mapboxAu, ...mapboxGlobal, ...openWeatherAuZip])
+      results = rankNumericByQuery(results, q).slice(0, 1)
     } else {
       const auProbeLimit = Math.max(limit, 8)
       const [openWeatherResults, openMeteoResults, openWeatherAuResults, openMeteoAuResults] =
