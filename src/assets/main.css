@@ -1,35 +1,58 @@
 @import './base.css';
 
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+.leaflet-control-zoom a {
+  color: #1e3e2f;
 }
 
-a,
-.green {
-  text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
+.reserve-name-label {
+  background: #1f66b3;
+  color: white;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 700;
+  padding: 4px 8px;
 }
 
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
-  }
+.reserve-name-label::before {
+  display: none;
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
+.home-label {
+  background: #153e2e;
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  font-weight: 700;
+  padding: 2px 8px;
+}
 
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
+.home-label::before {
+  display: none;
+}
+
+.distance-label-marker {
+  background: transparent;
+  border: 0;
+}
+
+.distance-label-text {
+  color: #2d79c6;
+  font-size: 20px;
+  font-weight: 800;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+}
+
+.species-tip {
+  background: rgba(23, 47, 37, 0.96);
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+}
+
+.species-tip::before {
+  display: none;
 }

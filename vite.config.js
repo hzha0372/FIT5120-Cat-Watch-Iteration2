@@ -3,8 +3,8 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
-import geocodeHandler from './api/geocode.js'
-import uvHandler from './api/uv.js'
+import catwatchHandler from './api/catwatch.js'
+import suburbsHandler from './api/suburbs.js'
 
 const createApiMiddleware = (handler) => async (req, res) => {
   const url = new URL(req.url || '/', 'http://localhost')
@@ -39,8 +39,8 @@ export default defineConfig({
     {
       name: 'local-api-routes',
       configureServer(server) {
-        server.middlewares.use('/api/geocode', createApiMiddleware(geocodeHandler))
-        server.middlewares.use('/api/uv', createApiMiddleware(uvHandler))
+        server.middlewares.use('/api/catwatch', createApiMiddleware(catwatchHandler))
+        server.middlewares.use('/api/suburbs', createApiMiddleware(suburbsHandler))
       },
     },
   ],
