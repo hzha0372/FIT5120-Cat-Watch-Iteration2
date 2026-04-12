@@ -547,7 +547,7 @@ onUnmounted(() => {
           <input
             v-model="query"
             type="text"
-            placeholder="Street address, suburb or postcode"
+            placeholder="Suburb or postcode"
             @input="onInputChange"
           />
           <ul v-if="suggestions.length" class="suggestions">

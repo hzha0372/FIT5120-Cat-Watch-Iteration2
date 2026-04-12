@@ -1,7 +1,9 @@
 <script setup>
 import { ref } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 
 const logoMissing = ref(false)
+const route = useRoute()
 </script>
 
 <template>
@@ -19,6 +21,18 @@ const logoMissing = ref(false)
           <p>Protecting Wildlife, Responsible Pet Ownership</p>
         </div>
       </div>
+      <nav class="top-nav">
+        <RouterLink to="/" class="nav-pill" :class="{ active: route.path === '/' }">
+          Home Dashboard
+        </RouterLink>
+        <RouterLink
+          to="/risk-map"
+          class="nav-pill"
+          :class="{ active: route.path.startsWith('/risk-map') }"
+        >
+          Risk Map
+        </RouterLink>
+      </nav>
     </header>
 
     <router-view />
@@ -66,5 +80,28 @@ const logoMissing = ref(false)
   margin-top: 3px;
   color: #557061;
   font-size: 0.9rem;
+}
+
+.top-nav {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.nav-pill {
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #3d5d4f;
+  border: 1px solid #bfd0c1;
+  background: #eaf1ea;
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
+.nav-pill.active {
+  color: #f5faf6;
+  border-color: #1d4c34;
+  background: #1d4c34;
 }
 </style>

@@ -5,6 +5,7 @@ import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import catwatchHandler from './api/catwatch.js'
 import suburbsHandler from './api/suburbs.js'
+import impactDashboardHandler from './api/impact-dashboard.js'
 
 const createApiMiddleware = (handler) => async (req, res) => {
   const url = new URL(req.url || '/', 'http://localhost')
@@ -41,6 +42,7 @@ export default defineConfig({
       configureServer(server) {
         server.middlewares.use('/api/catwatch', createApiMiddleware(catwatchHandler))
         server.middlewares.use('/api/suburbs', createApiMiddleware(suburbsHandler))
+        server.middlewares.use('/api/impact-dashboard', createApiMiddleware(impactDashboardHandler))
       },
     },
   ],
