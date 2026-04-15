@@ -35,13 +35,22 @@ const statusColor = {
 const legendItems = [
   { key: 'red', label: 'Endangered' },
   { key: 'amber', label: 'Vulnerable' },
-  { key: 'green', label: 'Listed' },
+  { key: 'green', label: 'Not listed' },
 ]
 const activeRiskFilter = ref('red')
 const filteredSpeciesList = computed(() => {
   const list = mapData.value?.species || []
   if (activeRiskFilter.value === 'all') return list
   return list.filter((species) => species.riskLevel === activeRiskFilter.value)
+})
+const riskCounts = computed(() => {
+  const list = mapData.value?.species || []
+  return {
+    high: list.filter((species) => species.riskLevel === 'red').length,
+    medium: list.filter((species) => species.riskLevel === 'amber').length,
+    low: list.filter((species) => species.riskLevel === 'green').length,
+    all: list.length,
+  }
 })
 
 const summaryText = computed(() => {
@@ -51,7 +60,7 @@ const summaryText = computed(() => {
 })
 
 const threatenedCount = computed(() => mapData.value?.summary?.threatenedSpecies || 0)
-const totalSpeciesCount = computed(() => mapData.value?.summary?.totalSpecies || 0)
+const totalSpeciesCount = computed(() => riskCounts.value.all)
 
 const highRiskText = computed(() => {
   const n = mapData.value?.summary?.highRiskSpecies || 0
@@ -605,7 +614,7 @@ onUnmounted(() => {
             :class="{ active: activeRiskFilter === 'red' }"
             @click="setRiskFilter('red')"
           >
-            High Risk
+            High Risk ({{ riskCounts.high }})
           </button>
           <button
             type="button"
@@ -613,7 +622,7 @@ onUnmounted(() => {
             :class="{ active: activeRiskFilter === 'amber' }"
             @click="setRiskFilter('amber')"
           >
-            Medium Risk
+            Medium Risk ({{ riskCounts.medium }})
           </button>
           <button
             type="button"
@@ -621,7 +630,7 @@ onUnmounted(() => {
             :class="{ active: activeRiskFilter === 'green' }"
             @click="setRiskFilter('green')"
           >
-            Low Risk
+            Low Risk ({{ riskCounts.low }})
           </button>
           <button
             type="button"
@@ -629,7 +638,7 @@ onUnmounted(() => {
             :class="{ active: activeRiskFilter === 'all' }"
             @click="setRiskFilter('all')"
           >
-            All
+            All ({{ riskCounts.all }})
           </button>
         </div>
         <span class="risk-pill">{{ highRiskText }}</span>
@@ -699,6 +708,13 @@ onUnmounted(() => {
 
         <div v-else class="detail-empty">
           Tap a red, yellow, or green species pin to view details.
+        </div>
+
+        <div class="impact-cta">
+          <p>
+            Now that you know what's out there, check Simba's live scoreboard from your roaming logs.
+          </p>
+          <RouterLink to="/impact-score">View Simba's Scoreboard →</RouterLink>
         </div>
       </div>
     </Transition>
@@ -1298,6 +1314,32 @@ dd {
   padding: 10px 12px;
 }
 
+.impact-cta {
+  border-top: 1px solid #d9ddd8;
+  background: #f4f5f3;
+  padding: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.impact-cta p {
+  margin: 0;
+  color: #44544c;
+  font-weight: 600;
+}
+
+.impact-cta a {
+  text-decoration: none;
+  color: #fff;
+  background: #1b6a3b;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 @media (max-width: 700px) {
   .hero h1 {
     font-size: 1.7rem;
@@ -1325,6 +1367,11 @@ dd {
 
   dl > div {
     font-size: 0.96rem;
+  }
+
+  .impact-cta {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

@@ -410,7 +410,6 @@ export default async function handler(req, res) {
       if (seenPinKey.has(pinKey)) continue
       seenPinKey.add(pinKey)
       dedupedRows.push(row)
-      if (dedupedRows.length >= 350) break
     }
 
     const species = dedupedRows.map((item, idx) => {
