@@ -11,11 +11,13 @@ const DEFAULT_DB_CONFIG = {
 
 let pool = null
 
+// Safely convert input to integer with fallback. | 功能：将输入安全转换为整数，失败时使用兜底值
 const toInt = (v, fallback = 0) => {
   const n = Number(v)
   return Number.isFinite(n) ? n : fallback
 }
 
+// Get and reuse database connection pool. | 功能：获取并复用数据库连接池
 const getPool = () => {
   if (pool) return pool
   const hasUrl = Boolean(process.env.DATABASE_URL)
@@ -37,6 +39,7 @@ const getPool = () => {
   return pool
 }
 
+// Handle API request and return aggregated response data. | 功能：处理接口请求并返回聚合后的响应数据
 export default async function handler(req, res) {
   try {
     const db = getPool()

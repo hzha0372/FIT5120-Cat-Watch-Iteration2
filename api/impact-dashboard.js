@@ -11,18 +11,22 @@ const DEFAULT_DB_CONFIG = {
 
 let pool = null
 
+// Safely convert input to integer with fallback. | 功能：将输入安全转换为整数，失败时使用兜底值
 const toInt = (v, fallback = 0) => {
   const n = Number(v)
   return Number.isFinite(n) ? n : fallback
 }
 
+// Safely convert input to number with fallback. | 功能：将输入安全转换为数字，失败时使用兜底值
 const toNum = (v, fallback = 0) => {
   const n = Number(v)
   return Number.isFinite(n) ? n : fallback
 }
 
+// Clamp value within a specified range. | 功能：将数值限制在指定区间内
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v))
 
+// Get and reuse database connection pool. | 功能：获取并复用数据库连接池
 const getPool = () => {
   if (pool) return pool
   const hasUrl = Boolean(process.env.DATABASE_URL)
@@ -44,6 +48,7 @@ const getPool = () => {
   return pool
 }
 
+// Normalize value to 0-100 by min-max range. | 功能：按最小最大区间将数值归一化到 0-100
 const normalize100 = (value, min, max) => {
   const v = toNum(value, 0)
   const lo = toNum(min, 0)
@@ -53,6 +58,7 @@ const normalize100 = (value, min, max) => {
   return clamp(((v - lo) / (hi - lo)) * 100, 0, 100)
 }
 
+// Aggregate weekly user logs into metrics. | 功能：聚合用户周度记录并生成统计指标
 const getWeeklyForUser = (rows) => {
   const byDay = new Map()
   for (const row of rows || []) {
@@ -69,6 +75,7 @@ const getWeeklyForUser = (rows) => {
   const referenceDay = allDays.length ? allDays[allDays.length - 1] : new Date().toISOString().slice(0, 10)
   const today = new Date(`${referenceDay}T00:00:00`)
 
+  // Generate continuous date keys by offset range. | 功能：根据日期偏移范围生成连续的日期键集合
   const dayKeys = (startOffset, endOffset) => {
     const keys = []
     for (let offset = startOffset; offset <= endOffset; offset += 1) {
@@ -101,6 +108,7 @@ const getWeeklyForUser = (rows) => {
   }
 }
 
+// Query and assemble full impact dashboard data. | 功能：查询并组装影响力仪表盘完整数据
 const getDashboardData = async () => {
   const db = getPool()
 
@@ -422,6 +430,7 @@ const getDashboardData = async () => {
   }
 }
 
+// Handle API request and return aggregated response data. | 功能：处理接口请求并返回聚合后的响应数据
 export default async function handler(req, res) {
   try {
     const data = await getDashboardData()

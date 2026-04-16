@@ -15,6 +15,7 @@ const canSubmit = computed(() => {
   return String(username.value).trim().length > 0 && String(password.value).trim().length > 0
 })
 
+// Handle login form submit and redirect flow. | 功能：处理登录表单提交与跳转逻辑
 const handleLogin = async () => {
   error.value = ''
 

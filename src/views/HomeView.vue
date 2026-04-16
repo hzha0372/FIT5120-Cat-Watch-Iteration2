@@ -6,6 +6,7 @@ const loading = ref(false)
 const error = ref('')
 const data = ref(null)
 
+// Fetch home summary data and update page state. | 功能：拉取首页汇总数据并更新页面状态
 const fetchSummary = async () => {
   loading.value = true
   error.value = ''
@@ -43,6 +44,7 @@ const preventedDisplay = computed(() =>
     : '0.00',
 )
 
+// Format time into a readable display string. | 功能：将时间格式化为更易读的显示文本
 const formatTime = (value) => {
   const txt = String(value || '')
   const m = txt.match(/^(\d{1,2}):(\d{2})/)

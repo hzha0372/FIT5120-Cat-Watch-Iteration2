@@ -72,6 +72,7 @@ const reserveBanner = computed(() => {
   return mapData.value.nearestReserve
 })
 
+// Format conservation status display text. | 功能：格式化物种保护状态显示文案
 const formatConservation = (name) => {
   const text = String(name || 'Not listed')
   if (text.toLowerCase().includes('critical')) return 'Critically Endangered'
@@ -113,11 +114,13 @@ const riskPanelBody = computed(() => {
   return `This species is active mainly at ${selectedSpecies.value.activityWindow.toLowerCase()}. Simba's 7-9am and 5-7pm windows have minimal overlap with its activity period.`
 })
 
+// Extract postcode from input text. | 功能：从输入文本中提取邮编
 const getPostcodeFromInput = (value) => {
   const match = String(value || '').match(/\b(\d{4})\b/)
   return match?.[1] || ''
 }
 
+// Initialize map instance and bind tile layer. | 功能：初始化地图实例并绑定底图
 const ensureMap = () => {
   if (map.value || !mapEl.value) return
 
@@ -135,6 +138,7 @@ const ensureMap = () => {
   reserveLayer.value = L.layerGroup().addTo(map.value)
 }
 
+// Wait for map container render before continuing. | 功能：等待地图容器渲染完成后再执行后续逻辑
 const waitForMapElement = async (retries = 12, delayMs = 60) => {
   for (let i = 0; i < retries; i += 1) {
     await nextTick()
@@ -145,6 +149,7 @@ const waitForMapElement = async (retries = 12, delayMs = 60) => {
   return Boolean(mapEl.value)
 }
 
+// Ensure map is ready, then trigger rendering. | 功能：确保地图准备完成后统一触发渲染
 const ensureMapAndRender = async () => {
   const ready = await waitForMapElement()
   if (!ready) return
@@ -155,8 +160,10 @@ const ensureMapAndRender = async () => {
   renderReserve()
 }
 
+// Compute centroid coordinates from geometry. | 功能：计算地理要素的中心点坐标
 const getGeometryCentroid = (geometry) => {
   const coords = []
+  // Recursively collect coordinate points from geometry. | 功能：递归收集几何结构中的经纬度坐标点
   const collect = (value) => {
     if (!Array.isArray(value)) return
     if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
@@ -174,11 +181,13 @@ const getGeometryCentroid = (geometry) => {
   return [sumLat / coords.length, sumLng / coords.length]
 }
 
+// Clear species and reserve layers on the map. | 功能：清理地图上的物种与保护区图层
 const clearLayers = () => {
   if (speciesLayer.value) speciesLayer.value.clearLayers()
   if (reserveLayer.value) reserveLayer.value.clearLayers()
 }
 
+// Switch risk filter and sync current selection. | 功能：切换风险筛选并同步选中状态
 const setRiskFilter = (level) => {
   activeRiskFilter.value = level
   if (selectedSpecies.value && level !== 'all' && selectedSpecies.value.riskLevel !== level) {
@@ -187,6 +196,7 @@ const setRiskFilter = (level) => {
   renderSpecies()
 }
 
+// Generate stable pseudo-random value from text for point spreading. | 功能：根据文本生成稳定随机值用于点位分布
 const seededUnit = (text) => {
   const s = String(text || '')
   let h = 2166136261
@@ -197,6 +207,7 @@ const seededUnit = (text) => {
   return (h >>> 0) / 4294967295
 }
 
+// Build display points and handle overlap. | 功能：构建地图展示点位并处理重叠
 const buildDisplayPoints = (speciesList) => {
   if (!map.value) return speciesList.map((s) => ({ species: s, lat: Number(s.lat), lng: Number(s.lng) }))
   const groups = new Map()
@@ -274,6 +285,7 @@ const buildDisplayPoints = (speciesList) => {
   return points
 }
 
+// Render species markers and interaction popups. | 功能：渲染物种点位与交互弹窗
 const renderSpecies = () => {
   if (!map.value || !speciesLayer.value || !mapData.value) return
 
@@ -284,6 +296,7 @@ const renderSpecies = () => {
 
   for (const point of displayPoints) {
     const { species } = point
+    // Update selected species for right-panel detail linkage. | 功能：更新当前选中的物种，用于右侧详情联动展示
     const setSelected = () => {
       selectedSpecies.value = species
     }
@@ -349,6 +362,7 @@ const renderSpecies = () => {
   }
 }
 
+// Render nearest reserve and guidance line. | 功能：渲染最近保护区及引导连线
 const renderReserve = () => {
   if (!map.value || !reserveLayer.value) return
 
@@ -414,10 +428,12 @@ const renderReserve = () => {
   }
 }
 
+// Handle input changes and reset suggestion state. | 功能：处理输入变化并重置候选状态
 const onInputChange = () => {
   selectedSuggestion.value = null
 }
 
+// Choose a suggestion and write it back to query input. | 功能：选择联想项并写回查询输入
 const chooseSuggestion = (item) => {
   const postcodeStyle = String(item.label || '').includes('·')
   query.value = postcodeStyle
@@ -427,6 +443,7 @@ const chooseSuggestion = (item) => {
   suggestions.value = []
 }
 
+// Normalize suggestion result schema for UI display. | 功能：标准化联想结果结构用于前端展示
 const normalizeSuggestionList = (items, rawQuery) => {
   const q = String(rawQuery || '').trim().toLowerCase()
   const list = Array.isArray(items) ? items : []
@@ -449,6 +466,7 @@ const normalizeSuggestionList = (items, rawQuery) => {
   return filtered.slice(0, 8)
 }
 
+// Load map business data and trigger rendering. | 功能：加载地图业务数据并触发渲染
 const loadMapData = async () => {
   loading.value = true
   error.value = ''
@@ -506,6 +524,7 @@ const loadMapData = async () => {
   }
 }
 
+// Return from result view to entry view and reset state. | 功能：从结果页返回到输入页并重置状态
 const backToEntry = () => {
   viewMode.value = 'entry'
 }

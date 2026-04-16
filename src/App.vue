@@ -10,6 +10,7 @@ const router = useRouter()
 const isLoginPage = computed(() => route.path === '/login')
 const showAppChrome = computed(() => !isLoginPage.value && isAuthenticated())
 
+// Log out and redirect to the login page. | 功能：执行登出并跳转到登录页
 const handleLogout = () => {
   logout()
   router.replace('/login')
