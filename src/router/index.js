@@ -43,7 +43,7 @@ const router = createRouter({
   routes,
 })
 
-// Global route guard for auth access control and redirects. | 功能：全局路由守卫，控制登录态访问与重定向
+// Global route guard for auth access control and redirects.
 router.beforeEach((to) => {
   const authed = isAuthenticated()
 

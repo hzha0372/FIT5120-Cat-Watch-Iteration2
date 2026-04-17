@@ -12,7 +12,7 @@ const DEFAULT_DB_CONFIG = {
 
 let pool = null
 
-// Get and reuse database connection pool. | 功能：获取并复用数据库连接池
+// Get and reuse database connection pool.
 const getPool = () => {
   if (pool) return pool
   const hasUrl = Boolean(process.env.DATABASE_URL)
@@ -35,7 +35,7 @@ const getPool = () => {
   return pool
 }
 
-// Handle API request and return aggregated response data. | 功能：处理接口请求并返回聚合后的响应数据
+// Handle API request and return aggregated response data.
 export default async function handler(req, res) {
   try {
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : ''

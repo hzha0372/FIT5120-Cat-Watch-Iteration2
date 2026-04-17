@@ -12,13 +12,13 @@ const DEFAULT_DB_CONFIG = {
 
 let pool = null
 
-// Safely convert input to integer with fallback. | 功能：将输入安全转换为整数，失败时使用兜底值
+// Safely convert input to integer with fallback.
 const toInt = (v, fallback = 0) => {
   const n = Number(v)
   return Number.isFinite(n) ? n : fallback
 }
 
-// Parse hour from text and bound it to 0-23. | 功能：解析时间文本中的小时并限制在 0-23
+// Parse hour from text and bound it to 0-23.
 const parseTimeHour = (value, fallbackHour) => {
   if (!value) return fallbackHour
   const text = String(value)
@@ -29,7 +29,7 @@ const parseTimeHour = (value, fallbackHour) => {
   return Math.max(0, Math.min(23, hour))
 }
 
-// Map conservation status to risk level color. | 功能：将保护状态映射为风险等级颜色
+// Map conservation status to risk level color.
 const statusToLevel = (status) => {
   const text = String(status || '').toLowerCase()
   if (text.includes('critical') || text.includes('endangered')) return 'red'
@@ -37,7 +37,7 @@ const statusToLevel = (status) => {
   return 'green'
 }
 
-// Infer species type from class and names. | 功能：根据分类和名称推断物种类型
+// Infer species type from class and names.
 const inferSpeciesType = (className = '', commonName = '', scientificName = '') => {
   const classText = String(className || '').toLowerCase()
   if (classText.includes('aves')) return 'Bird'
@@ -51,7 +51,7 @@ const inferSpeciesType = (className = '', commonName = '', scientificName = '') 
   return 'Native Species'
 }
 
-// Convert 24-hour value to am/pm label. | 功能：将 24 小时制小时转为 am/pm 标签
+// Convert 24-hour value to am/pm label.
 const formatHourLabel = (hour) => {
   const h = Number(hour)
   if (!Number.isFinite(h)) return ''
@@ -61,10 +61,10 @@ const formatHourLabel = (hour) => {
   return `${hour12}${suffix}`
 }
 
-// Build activity time-window display label. | 功能：拼接活动时间窗口显示文本
+// Build activity time-window display label.
 const buildWindowLabel = (startHour, endHour) => `${formatHourLabel(startHour)}-${formatHourLabel(endHour)}`
 
-// Classify hour into dawn/dusk/night windows. | 功能：将小时归类为晨昏夜等活动窗口
+// Classify hour into dawn/dusk/night windows.
 const toActivityWindow = (hour) => {
   const h = Number(hour)
   if (!Number.isFinite(h)) return 'Unknown'
@@ -74,7 +74,7 @@ const toActivityWindow = (hour) => {
   return 'All day'
 }
 
-// Return detailed description for activity window. | 功能：返回活动窗口的详细说明文案
+// Return detailed description for activity window.
 const activityWindowDetail = (window) => {
   if (window === 'Dawn') return 'Dawn · 5am - 9am'
   if (window === 'Dusk') return 'Dusk · 5pm - 7pm'
@@ -83,12 +83,12 @@ const activityWindowDetail = (window) => {
   return 'Unknown'
 }
 
-// Check whether species activity overlaps cat outing schedule. | 功能：判断物种活动窗口与家猫外出时段是否重叠
+// Check whether species activity overlaps cat outing schedule.
 const windowOverlaps = (activityWindow, schedule) => {
   const windowText = String(activityWindow || '').toLowerCase()
   const { morningStart, morningEnd, eveningStart, eveningEnd } = schedule
 
-  // Check whether a time range intersects cat morning/evening windows. | 功能：判断指定时间段是否与家猫早晚外出时段相交
+  // Check whether a time range intersects cat morning/evening windows.
   const overlapsRange = (startHour, endHour) => {
     if (startHour <= endHour) {
       const morningOverlap = startHour <= morningEnd && endHour >= morningStart
@@ -105,7 +105,7 @@ const windowOverlaps = (activityWindow, schedule) => {
   return overlapsRange(0, 23)
 }
 
-// Generate overlap hint between activity window and cat schedule. | 功能：生成活动时段与家猫外出重叠提示
+// Generate overlap hint between activity window and cat schedule.
 const getOverlapWindowLabel = (activityWindow, schedule, overlaps) => {
   if (!overlaps) {
     if (String(activityWindow || '').toLowerCase().includes('night')) return 'Low - nocturnal only'
@@ -119,7 +119,7 @@ const getOverlapWindowLabel = (activityWindow, schedule, overlaps) => {
   return `Yes - ${buildWindowLabel(schedule.morningStart, schedule.morningEnd)} and ${buildWindowLabel(schedule.eveningStart, schedule.eveningEnd)}`
 }
 
-// Get and reuse database connection pool. | 功能：获取并复用数据库连接池
+// Get and reuse database connection pool.
 const getPool = () => {
   if (pool) return pool
 
@@ -142,7 +142,7 @@ const getPool = () => {
   return pool
 }
 
-// Execute DB query and safely return empty on error. | 功能：执行数据库查询并在异常时安全返回空结果
+// Execute DB query and safely return empty on error.
 const queryDb = async (sql, params = []) => {
   const db = getPool()
   if (!db) return null
@@ -153,7 +153,7 @@ const queryDb = async (sql, params = []) => {
   }
 }
 
-// Query centroid location by postcode. | 功能：根据邮编查询对应地理中心点
+// Query centroid location by postcode.
 const getPostcodeLocation = async (postcode) => {
   const dbResult = await queryDb(
     `SELECT TRIM(postcode) AS postcode, suburb_name, centroid_lat, centroid_lng
@@ -176,7 +176,7 @@ const getPostcodeLocation = async (postcode) => {
   return null
 }
 
-// Get cat outing schedule using user data first, aggregate fallback second. | 功能：获取家猫外出时段优先用用户数据回退均值
+// Get cat outing schedule using user data first, aggregate fallback second.
 const getSchedule = async (postcode) => {
   const dbResult = await queryDb(
     `SELECT morning_out, morning_in, evening_out, evening_in
@@ -236,7 +236,7 @@ const getSchedule = async (postcode) => {
   return null
 }
 
-// Load nearby species records from DB cache. | 功能：从数据库缓存加载附近物种记录
+// Load nearby species records from DB cache.
 const loadSpeciesFromDbCache = async (postcode) => {
   const dbResult = await queryDb(
     `SELECT vernacular_name, scientific_name, state_conservation, lat, lng,
@@ -249,7 +249,7 @@ const loadSpeciesFromDbCache = async (postcode) => {
   return dbResult?.rows || []
 }
 
-// Load global active-hour profiles for species. | 功能：加载物种全局活跃时段画像
+// Load global active-hour profiles for species.
 const loadGlobalHourProfiles = async (speciesKeys) => {
   const keys = Array.isArray(speciesKeys) ? speciesKeys.filter(Boolean) : []
   if (!keys.length) return new Map()
@@ -278,7 +278,7 @@ const loadGlobalHourProfiles = async (speciesKeys) => {
   return result
 }
 
-// Get species list near a target location. | 功能：获取指定位置附近的物种列表
+// Get species list near a target location.
 const getSpecies = async ({ postcode }) => {
   if (!postcode) return { rows: [], source: 'none', error: 'Missing postcode for DB query' }
   const cached = await loadSpeciesFromDbCache(postcode)
@@ -286,7 +286,7 @@ const getSpecies = async ({ postcode }) => {
   return { rows: [], source: 'none', error: `No cached species found for postcode ${postcode}` }
 }
 
-// Query nearest reserve to current location. | 功能：查询离当前位置最近的保护区
+// Query nearest reserve to current location.
 const getNearestReserve = async ({ lat, lng }) => {
   const dbResult = await queryDb(
     `WITH home AS (
@@ -330,23 +330,24 @@ const getNearestReserve = async ({ lat, lng }) => {
   }
 }
 
-// Format meter distance into readable text. | 功能：将米制距离格式化为易读文本
+// Format meter distance into readable text.
 const formatDistance = (meters) => {
   if (!Number.isFinite(meters)) return 'Unknown'
   if (meters < 1000) return `${Math.round(meters)}m`
   return `${(meters / 1000).toFixed(1)}km`
 }
 
-// Extract 4-digit postcode from address string. | 功能：从地址字符串中提取四位邮编
+// Extract 4-digit postcode from address string.
 const extractPostcode = (addressLike) => {
   const match = String(addressLike || '').match(/\b(\d{4})\b/)
   if (!match) return ''
   return match[1]
 }
 
-// Handle API request and return aggregated response data. | 功能：处理接口请求并返回聚合后的响应数据
+// Handle API request and return aggregated response data.
 export default async function handler(req, res) {
   try {
+    // Parse location-related inputs from query parameters and normalize types.
     const address = typeof req.query.address === 'string' ? req.query.address : ''
     const postcodeInput = typeof req.query.postcode === 'string' ? req.query.postcode.trim() : ''
     const latInput = Number(req.query.lat)
@@ -356,6 +357,7 @@ export default async function handler(req, res) {
 
     let location = null
 
+    // Prefer explicit lat/lng from the selected suburb; otherwise fallback to postcode lookup.
     if (hasExplicitCoords) {
       const fromDb = /^\d{4}$/.test(postcodeCandidate) ? await getPostcodeLocation(postcodeCandidate) : null
       location = {
@@ -394,6 +396,7 @@ export default async function handler(req, res) {
       return
     }
 
+    // Build per-species activity statistics from local cached observations.
     const speciesFrequency = new Map()
     const speciesHourProfile = new Map()
     const speciesHourSet = new Map()
@@ -421,6 +424,7 @@ export default async function handler(req, res) {
     }
     const globalProfiles = await loadGlobalHourProfiles(fallbackSpeciesKeys)
 
+    // De-duplicate map pins so the same species at the same point appears once.
     const dedupedRows = []
     const seenPinKey = new Set()
     for (const row of rawSpecies) {
@@ -434,6 +438,7 @@ export default async function handler(req, res) {
       dedupedRows.push(row)
     }
 
+    // Transform DB rows into API-friendly species objects used by the frontend map.
     const species = dedupedRows.map((item, idx) => {
       const speciesKey = String(item.scientific_name || '').trim().toLowerCase()
       const localProfile = speciesHourProfile.get(speciesKey)
@@ -473,6 +478,7 @@ export default async function handler(req, res) {
     const highRiskCount = species.filter((s) => s.riskLevel === 'red').length
     const reserve = await getNearestReserve({ lat: location.lat, lng: location.lng })
 
+    // Return complete payload for the map, side panel details, and summary badges.
     res.status(200).json({
       location,
       schedule,

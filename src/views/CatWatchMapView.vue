@@ -72,7 +72,7 @@ const reserveBanner = computed(() => {
   return mapData.value.nearestReserve
 })
 
-// Format conservation status display text. | 功能：格式化物种保护状态显示文案
+// Format conservation status display text.
 const formatConservation = (name) => {
   const text = String(name || 'Not listed')
   if (text.toLowerCase().includes('critical')) return 'Critically Endangered'
@@ -114,13 +114,13 @@ const riskPanelBody = computed(() => {
   return `This species is active mainly at ${selectedSpecies.value.activityWindow.toLowerCase()}. Simba's 7-9am and 5-7pm windows have minimal overlap with its activity period.`
 })
 
-// Extract postcode from input text. | 功能：从输入文本中提取邮编
+// Extract postcode from input text.
 const getPostcodeFromInput = (value) => {
   const match = String(value || '').match(/\b(\d{4})\b/)
   return match?.[1] || ''
 }
 
-// Initialize map instance and bind tile layer. | 功能：初始化地图实例并绑定底图
+// Initialize map instance and bind tile layer.
 const ensureMap = () => {
   if (map.value || !mapEl.value) return
 
@@ -138,7 +138,7 @@ const ensureMap = () => {
   reserveLayer.value = L.layerGroup().addTo(map.value)
 }
 
-// Wait for map container render before continuing. | 功能：等待地图容器渲染完成后再执行后续逻辑
+// Wait for map container render before continuing.
 const waitForMapElement = async (retries = 12, delayMs = 60) => {
   for (let i = 0; i < retries; i += 1) {
     await nextTick()
@@ -149,7 +149,7 @@ const waitForMapElement = async (retries = 12, delayMs = 60) => {
   return Boolean(mapEl.value)
 }
 
-// Ensure map is ready, then trigger rendering. | 功能：确保地图准备完成后统一触发渲染
+// Ensure map is ready, then trigger rendering.
 const ensureMapAndRender = async () => {
   const ready = await waitForMapElement()
   if (!ready) return
@@ -160,10 +160,10 @@ const ensureMapAndRender = async () => {
   renderReserve()
 }
 
-// Compute centroid coordinates from geometry. | 功能：计算地理要素的中心点坐标
+// Compute centroid coordinates from geometry.
 const getGeometryCentroid = (geometry) => {
   const coords = []
-  // Recursively collect coordinate points from geometry. | 功能：递归收集几何结构中的经纬度坐标点
+  // Recursively collect coordinate points from geometry.
   const collect = (value) => {
     if (!Array.isArray(value)) return
     if (value.length >= 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])) {
@@ -181,13 +181,13 @@ const getGeometryCentroid = (geometry) => {
   return [sumLat / coords.length, sumLng / coords.length]
 }
 
-// Clear species and reserve layers on the map. | 功能：清理地图上的物种与保护区图层
+// Clear species and reserve layers on the map.
 const clearLayers = () => {
   if (speciesLayer.value) speciesLayer.value.clearLayers()
   if (reserveLayer.value) reserveLayer.value.clearLayers()
 }
 
-// Switch risk filter and sync current selection. | 功能：切换风险筛选并同步选中状态
+// Switch risk filter and sync current selection.
 const setRiskFilter = (level) => {
   activeRiskFilter.value = level
   if (selectedSpecies.value && level !== 'all' && selectedSpecies.value.riskLevel !== level) {
@@ -196,7 +196,7 @@ const setRiskFilter = (level) => {
   renderSpecies()
 }
 
-// Generate stable pseudo-random value from text for point spreading. | 功能：根据文本生成稳定随机值用于点位分布
+// Generate stable pseudo-random value from text for point spreading.
 const seededUnit = (text) => {
   const s = String(text || '')
   let h = 2166136261
@@ -207,9 +207,11 @@ const seededUnit = (text) => {
   return (h >>> 0) / 4294967295
 }
 
-// Build display points and handle overlap. | 功能：构建地图展示点位并处理重叠
+// Build display points and handle overlap.
 const buildDisplayPoints = (speciesList) => {
   if (!map.value) return speciesList.map((s) => ({ species: s, lat: Number(s.lat), lng: Number(s.lng) }))
+
+  // Group points by rounded coordinates so only truly overlapping pins are spread.
   const groups = new Map()
   for (const species of speciesList) {
     const key = `${Number(species.lat).toFixed(5)}|${Number(species.lng).toFixed(5)}`
@@ -242,6 +244,7 @@ const buildDisplayPoints = (speciesList) => {
       }
     })
 
+    // Run a short physics-style relaxation so markers keep a minimum spacing.
     const minDist = 13
     const maxRadius = 24
     for (let iter = 0; iter < 18; iter += 1) {
@@ -261,6 +264,7 @@ const buildDisplayPoints = (speciesList) => {
         }
       }
 
+      // Keep all shifted points within a fixed radius around the original location.
       for (const n of nodes) {
         const ox = n.x - center.x
         const oy = n.y - center.y
@@ -285,18 +289,19 @@ const buildDisplayPoints = (speciesList) => {
   return points
 }
 
-// Render species markers and interaction popups. | 功能：渲染物种点位与交互弹窗
+// Render species markers and interaction popups.
 const renderSpecies = () => {
   if (!map.value || !speciesLayer.value || !mapData.value) return
 
   const bounds = []
   speciesLayer.value.clearLayers()
 
+  // Pre-calculate map-safe display coordinates before creating markers.
   const displayPoints = buildDisplayPoints(filteredSpeciesList.value)
 
   for (const point of displayPoints) {
     const { species } = point
-    // Update selected species for right-panel detail linkage. | 功能：更新当前选中的物种，用于右侧详情联动展示
+    // Update selected species for right-panel detail linkage.
     const setSelected = () => {
       selectedSpecies.value = species
     }
@@ -314,6 +319,7 @@ const renderSpecies = () => {
     hitArea.on('touchstart', setSelected)
     hitArea.addTo(speciesLayer.value)
 
+    // Draw the visible marker after the larger transparent hit area.
     const marker = L.circleMarker([point.lat, point.lng], {
       radius: species.riskLevel === 'red' ? 9 : species.riskLevel === 'amber' ? 8 : 7,
       weight: 2.5,
@@ -336,6 +342,7 @@ const renderSpecies = () => {
     bounds.push([point.lat, point.lng])
   }
 
+  // Keep the user home marker in the same layer so all points fit one bounds call.
   const homeLat = Number(mapData.value?.location?.lat)
   const homeLng = Number(mapData.value?.location?.lng)
   if (Number.isFinite(homeLat) && Number.isFinite(homeLng)) {
@@ -362,7 +369,7 @@ const renderSpecies = () => {
   }
 }
 
-// Render nearest reserve and guidance line. | 功能：渲染最近保护区及引导连线
+// Render nearest reserve and guidance line.
 const renderReserve = () => {
   if (!map.value || !reserveLayer.value) return
 
@@ -428,12 +435,12 @@ const renderReserve = () => {
   }
 }
 
-// Handle input changes and reset suggestion state. | 功能：处理输入变化并重置候选状态
+// Handle input changes and reset suggestion state.
 const onInputChange = () => {
   selectedSuggestion.value = null
 }
 
-// Choose a suggestion and write it back to query input. | 功能：选择联想项并写回查询输入
+// Choose a suggestion and write it back to query input.
 const chooseSuggestion = (item) => {
   const postcodeStyle = String(item.label || '').includes('·')
   query.value = postcodeStyle
@@ -443,7 +450,7 @@ const chooseSuggestion = (item) => {
   suggestions.value = []
 }
 
-// Normalize suggestion result schema for UI display. | 功能：标准化联想结果结构用于前端展示
+// Normalize suggestion result schema for UI display.
 const normalizeSuggestionList = (items, rawQuery) => {
   const q = String(rawQuery || '').trim().toLowerCase()
   const list = Array.isArray(items) ? items : []
@@ -466,7 +473,7 @@ const normalizeSuggestionList = (items, rawQuery) => {
   return filtered.slice(0, 8)
 }
 
-// Load map business data and trigger rendering. | 功能：加载地图业务数据并触发渲染
+// Load map business data and trigger rendering.
 const loadMapData = async () => {
   loading.value = true
   error.value = ''
@@ -478,6 +485,7 @@ const loadMapData = async () => {
     const postcodeInput = getPostcodeFromInput(query.value)
     let picked = selectedSuggestion.value
 
+    // If the user typed text but did not click a suggestion, auto-pick the top match.
     if (!picked && query.value.trim()) {
       const lookupQuery = postcodeInput || query.value
       const resp = await fetch(`/api/suburbs?q=${encodeURIComponent(lookupQuery)}&limit=8`)
@@ -487,6 +495,7 @@ const loadMapData = async () => {
       suggestions.value = refined
     }
 
+    // Build API params differently for explicit suburb picks vs plain postcode input.
     let url = ''
     if (picked && picked.postcode) {
       url =
@@ -501,6 +510,7 @@ const loadMapData = async () => {
       throw new Error('Please select a Victorian suburb or enter a valid 4-digit postcode.')
     }
 
+    // Load the full dataset, then switch to results mode and trigger map rendering.
     const response = await fetch(url)
     const data = await response.json()
 
@@ -524,7 +534,7 @@ const loadMapData = async () => {
   }
 }
 
-// Return from result view to entry view and reset state. | 功能：从结果页返回到输入页并重置状态
+// Return from result view to entry view and reset state.
 const backToEntry = () => {
   viewMode.value = 'entry'
 }
@@ -549,6 +559,7 @@ watch(query, async (value) => {
     return
   }
 
+  // Debounce suburb lookup to avoid rapid API calls while typing.
   suggestTimer = setTimeout(async () => {
     searchingSuggestions.value = true
     try {
@@ -608,7 +619,7 @@ onUnmounted(() => {
       <div v-if="viewMode === 'entry'" key="entry" class="screen-panel">
         <div class="entry-empty">
           <div class="pin-circle">📍</div>
-          <h2>Enter your home address</h2>
+          <h2>Enter your suburb or postcode</h2>
           <p>Your map will show every native species recorded within 5km, pinned and colour-coded by their Victorian conservation status.</p>
           <div class="entry-legend">
             <span v-for="item in legendItems" :key="item.key">

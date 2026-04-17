@@ -7,7 +7,7 @@ const error = ref('')
 const data = ref(null)
 let timer = null
 
-// Fetch impact dashboard data and update page state. | 功能：拉取影响力看板数据并更新页面状态
+// Fetch impact dashboard data and update page state.
 const fetchDashboard = async () => {
   loading.value = true
   error.value = ''
@@ -59,7 +59,7 @@ const catProfileLine = computed(() => {
   return `${suburb} · ${age > 0 ? `${age}-year-old` : '-'} ${sex} outdoor cat`
 })
 
-// Format time into a readable display string. | 功能：将时间格式化为更易读的显示文本
+// Format time into a readable display string.
 const formatTime = (value) => {
   const txt = String(value || '')
   const m = txt.match(/^(\d{1,2}):(\d{2})/)

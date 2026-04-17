@@ -7,7 +7,7 @@ import catwatchHandler from './api/catwatch.js'
 import suburbsHandler from './api/suburbs.js'
 import impactDashboardHandler from './api/impact-dashboard.js'
 
-// Adapt function-style handler into Vite middleware. | 功能：将函数式接口适配为 Vite 中间件
+// Adapt function-style handler into Vite middleware.
 const createApiMiddleware = (handler) => async (req, res) => {
   const url = new URL(req.url || '/', 'http://localhost')
   const query = Object.fromEntries(url.searchParams.entries())
