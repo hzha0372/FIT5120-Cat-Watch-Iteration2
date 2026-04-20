@@ -381,11 +381,11 @@ const renderReserve = () => {
 
   const geoLayer = L.geoJSON(reserve.geometry, {
     style: {
-      color: '#1f66b3',
-      weight: 2,
-      fillColor: '#1f66b3',
-      fillOpacity: 0.18,
-      dashArray: '6 5',
+      color: '#1f5f9f',
+      weight: 4,
+      fillColor: '#2f7fcb',
+      fillOpacity: 0.34,
+      dashArray: '8 5',
     },
   })
   geoLayer.addTo(reserveLayer.value)
@@ -418,8 +418,8 @@ const renderReserve = () => {
       ],
       {
         color: '#3f8ad5',
-        weight: 2,
-        dashArray: '6 5',
+        weight: 3,
+        dashArray: '7 5',
       },
     ).addTo(reserveLayer.value)
 
@@ -1310,10 +1310,10 @@ dd {
   display: inline-block;
   background: #1f66b3;
   color: #fff;
-  border-radius: 6px;
-  padding: 5px 9px;
-  font-size: 0.8rem;
-  font-weight: 700;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 0.95rem;
+  font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
   box-shadow: 0 4px 10px rgba(31, 102, 179, 0.25);
@@ -1328,7 +1328,7 @@ dd {
   display: inline-block;
   color: #2b6cb2;
   font-weight: 800;
-  font-size: 1.45rem;
+  font-size: 1.7rem;
   line-height: 1;
   text-shadow:
     0 1px 0 #ffffff,
