@@ -115,7 +115,7 @@ const getDashboardData = async () => {
   const userResult = await db.query(
     `SELECT id, name, cat_name, cat_age_years, cat_sex, postcode, morning_out, morning_in, evening_out, evening_in
      FROM users
-     ORDER BY CASE WHEN LOWER(cat_name) = 'simba' THEN 0 ELSE 1 END, id ASC
+     ORDER BY id ASC
      LIMIT 1`,
   )
   if (!userResult.rows.length) {
@@ -187,8 +187,15 @@ const getDashboardData = async () => {
   )
 
   const weekly = getWeeklyForUser(userLogsResult.rows)
-  const preyRateMonthly = 2
-  const preyRateDaily = preyRateMonthly / 30
+  const preyPerDayStat = Number(statsMap.get('prey_per_day')?.value)
+  if (!Number.isFinite(preyPerDayStat) || preyPerDayStat <= 0) {
+    throw new Error('Missing or invalid prey_per_day in cats_behaviour_stats')
+  }
+  const preyMedianMonthlyStat = Number(statsMap.get('prey_median_monthly')?.value)
+  const preyRateDaily = preyPerDayStat
+  const preyRateMonthly = Number.isFinite(preyMedianMonthlyStat) && preyMedianMonthlyStat > 0
+    ? preyMedianMonthlyStat
+    : preyRateDaily * 30
   const causedEstimated = Number((weekly.roamingEvenings * preyRateDaily).toFixed(2))
   const preventedEstimated = Number((weekly.containedEvenings * preyRateDaily).toFixed(2))
 
@@ -369,7 +376,7 @@ const getDashboardData = async () => {
     preyRate: {
       monthly: preyRateMonthly,
       daily: Number(preyRateDaily.toFixed(4)),
-      note: 'Based on Cat Tracker data- suburban outdoor cats average 2 prey items per month.',
+      note: statsMap.get('prey_per_day')?.notes || 'Derived from cats_behaviour_stats prey_per_day.',
     },
     behaviourStats: {
       outdoorCatPct: statsMap.get('outdoor_cat_pct') || null,

@@ -6,6 +6,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import catwatchHandler from './api/catwatch.js'
 import suburbsHandler from './api/suburbs.js'
 import impactDashboardHandler from './api/impact-dashboard.js'
+import missionStatsHandler from './api/mission-stats.js'
 
 // Adapt function-style handler into Vite middleware.
 const createApiMiddleware = (handler) => async (req, res) => {
@@ -44,6 +45,7 @@ export default defineConfig({
         server.middlewares.use('/api/catwatch', createApiMiddleware(catwatchHandler))
         server.middlewares.use('/api/suburbs', createApiMiddleware(suburbsHandler))
         server.middlewares.use('/api/impact-dashboard', createApiMiddleware(impactDashboardHandler))
+        server.middlewares.use('/api/mission-stats', createApiMiddleware(missionStatsHandler))
       },
     },
   ],

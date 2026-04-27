@@ -1,3 +1,56 @@
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+
+const loading = ref(false)
+const error = ref('')
+const data = ref(null)
+
+// Fetch mission statistics from database-backed API.
+const fetchMissionStats = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const response = await fetch('/api/mission-stats')
+    const payload = await response.json()
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Failed to load mission stats')
+    }
+    data.value = payload
+  } catch (err) {
+    error.value = err?.message || 'Failed to load mission stats'
+  } finally {
+    loading.value = false
+  }
+}
+
+const outdoorCatPct = computed(() => {
+  const v = Number(data.value?.behaviourStats?.outdoorCatPct?.value)
+  return Number.isFinite(v) ? `${v.toFixed(1)}%` : '--'
+})
+
+const clandestinePct = computed(() => {
+  const v = Number(data.value?.behaviourStats?.clandestinePct?.value)
+  return Number.isFinite(v) ? `${v.toFixed(1)}%` : '--'
+})
+
+const preyMedianMonthly = computed(() => {
+  const v = Number(data.value?.behaviourStats?.preyMedianMonthly?.value)
+  return Number.isFinite(v) ? v.toFixed(1) : '--'
+})
+
+const usersTracked = computed(() => Number(data.value?.coverage?.usersTracked || 0))
+
+const updatedAtText = computed(() => {
+  const iso = data.value?.updatedAt
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString()
+})
+
+onMounted(fetchMissionStats)
+</script>
+
 <template>
   <section class="mission-page">
     <div class="mission-shell">
@@ -19,16 +72,16 @@
 
         <article class="hero-stats">
           <div>
-            <strong>377M</strong>
-            <p>Native animals estimated to be killed by pet cats in Australia each year.</p>
+            <strong>{{ outdoorCatPct }}</strong>
+            <p>Of cats in tracked behaviour data are allowed outdoors.</p>
           </div>
           <div>
-            <strong>79.4%</strong>
-            <p>Of households that own cats are in suburban or peri-urban communities.</p>
+            <strong>{{ clandestinePct }}</strong>
+            <p>Of hunting events are hidden from owners in behaviour stats.</p>
           </div>
           <div>
-            <strong>39%</strong>
-            <p>Of owned domestic cats are allowed to roam outside by owners.</p>
+            <strong>{{ preyMedianMonthly }}</strong>
+            <p>Median prey items per cat per month in source behaviour data.</p>
           </div>
         </article>
       </section>
@@ -36,19 +89,23 @@
       <section class="section two-col">
         <article class="panel">
           <p class="label">Our mission</p>
-          <h2>To make the hidden wildlife impact of roaming pet cats visible, empowering suburban Victorian cat owners to take meaningful action through data-driven tools.</h2>
+          <h2>
+            To make the hidden wildlife impact of roaming pet cats visible, empowering suburban Victorian cat owners
+            to take meaningful action through data-driven tools.
+          </h2>
           <p>
             We connect everyday pet ownership to real ecological data via interactive maps and live impact dashboards,
-            helping owners in suburban Victoria understand how their cats interact with locally threatened native species
-            and giving them the tools to change their behaviour.
+            helping owners in suburban Victoria understand how their cats interact with locally threatened native
+            species and giving them the tools to change their behaviour.
           </p>
+          <p>Scope update: CatWatch has expanded from an initial Melbourne focus to statewide Victoria coverage.</p>
         </article>
         <article class="panel">
           <p class="label">Our vision</p>
           <h2>A suburban Victoria where every cat owner understands their pet's ecological footprint, and chooses to protect it.</h2>
           <p>
-            We envision a future where data-driven tools close the gap between pet love and wildlife conservation where
-            no threatened Victorian species is silently lost because its neighborhood cats go unmonitored.
+            We envision a future where data-driven tools close the gap between pet love and wildlife conservation
+            where no threatened Victorian species is silently lost because neighborhood cats go unmonitored.
           </p>
         </article>
       </section>
@@ -56,6 +113,10 @@
       <section class="section">
         <p class="label">The problem we solve</p>
         <h2>Why CatWatch exists</h2>
+        <p class="source-line">
+          Live database coverage: {{ usersTracked }} tracked users.
+          <span v-if="updatedAtText"> Updated: {{ updatedAtText }}</span>
+        </p>
         <div class="card-grid three">
           <article class="card">
             <h3>The invisible impact</h3>
@@ -77,27 +138,27 @@
         <h2>Core values</h2>
         <div class="card-grid five">
           <article class="value-card">
-            <div class="value-icon">📊</div>
+            <div class="value-icon">Data</div>
             <h3>Data transparency</h3>
             <p>Every number shows its source. No black boxes, no vague claims.</p>
           </article>
           <article class="value-card">
-            <div class="value-icon">💪</div>
+            <div class="value-icon">People</div>
             <h3>Owner empowerment</h3>
             <p>We give owners evidence, not lectures. The choice to act is theirs.</p>
           </article>
           <article class="value-card">
-            <div class="value-icon">📍</div>
+            <div class="value-icon">Local</div>
             <h3>Local conservation</h3>
             <p>No national averages. Every score is specific to your postcode.</p>
           </article>
           <article class="value-card">
-            <div class="value-icon">🔁</div>
+            <div class="value-icon">Action</div>
             <h3>Behavioural change</h3>
             <p>We design for the moment where data becomes a decision.</p>
           </article>
           <article class="value-card">
-            <div class="value-icon">🦜</div>
+            <div class="value-icon">Native</div>
             <h3>Native species protection</h3>
             <p>Victorian threatened species are the reason CatWatch exists.</p>
           </article>
@@ -106,8 +167,11 @@
 
       <section class="end-cta">
         <h2>How might we help pet owners reduce wildlife harm without asking them to choose between their cat and conservation?</h2>
-        <RouterLink to="/risk-map">Start with your suburb →</RouterLink>
+        <RouterLink to="/risk-map">Start with your suburb -&gt;</RouterLink>
       </section>
+
+      <p v-if="loading" class="status">Loading mission stats from database...</p>
+      <p v-if="error" class="error">{{ error }}</p>
     </div>
   </section>
 </template>
@@ -221,6 +285,11 @@
   color: #5e6d65;
 }
 
+.source-line {
+  margin-top: 8px;
+  color: #5f6e66;
+}
+
 .card-grid {
   margin-top: 14px;
   display: grid;
@@ -273,8 +342,12 @@
 }
 
 .value-icon {
-  font-size: 1.15rem;
+  font-size: 0.88rem;
   line-height: 1;
+  font-weight: 700;
+  color: #3f5b4d;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .value-card h3 {
@@ -313,6 +386,20 @@
   padding: 9px 14px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.status,
+.error {
+  margin: 12px 20px 20px;
+  font-size: 0.92rem;
+}
+
+.status {
+  color: #45614f;
+}
+
+.error {
+  color: #a12f2f;
 }
 
 @media (max-width: 1080px) {

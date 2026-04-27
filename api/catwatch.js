@@ -19,8 +19,8 @@ const toInt = (v, fallback = 0) => {
 }
 
 // Parse hour from text and bound it to 0-23.
-const parseTimeHour = (value, fallbackHour) => {
-  if (!value) return fallbackHour
+const parseTimeHour = (value, fallbackHour = null) => {
+  if (value === null || value === undefined || value === '') return fallbackHour
   const text = String(value)
   const match = text.match(/^(\d{1,2})/)
   if (!match) return fallbackHour
@@ -182,6 +182,10 @@ const getSchedule = async (postcode) => {
     `SELECT morning_out, morning_in, evening_out, evening_in
      FROM users
      WHERE postcode = $1
+       AND morning_out IS NOT NULL
+       AND morning_in IS NOT NULL
+       AND evening_out IS NOT NULL
+       AND evening_in IS NOT NULL
      ORDER BY id ASC
      LIMIT 1`,
     [postcode],
@@ -189,10 +193,11 @@ const getSchedule = async (postcode) => {
 
   if (dbResult?.rows?.length) {
     const row = dbResult.rows[0]
-    const morningStart = parseTimeHour(row.morning_out, 7)
-    const morningEnd = parseTimeHour(row.morning_in, 9)
-    const eveningStart = parseTimeHour(row.evening_out, 17)
-    const eveningEnd = parseTimeHour(row.evening_in, 19)
+    const morningStart = parseTimeHour(row.morning_out)
+    const morningEnd = parseTimeHour(row.morning_in)
+    const eveningStart = parseTimeHour(row.evening_out)
+    const eveningEnd = parseTimeHour(row.evening_in)
+    if (![morningStart, morningEnd, eveningStart, eveningEnd].every(Number.isFinite)) return null
     return {
       morningStart,
       morningEnd,
@@ -219,10 +224,11 @@ const getSchedule = async (postcode) => {
 
   if (agg?.rows?.length) {
     const row = agg.rows[0]
-    const morningStart = parseTimeHour(row.morning_start, 7)
-    const morningEnd = parseTimeHour(row.morning_end, 9)
-    const eveningStart = parseTimeHour(row.evening_start, 17)
-    const eveningEnd = parseTimeHour(row.evening_end, 19)
+    const morningStart = parseTimeHour(row.morning_start)
+    const morningEnd = parseTimeHour(row.morning_end)
+    const eveningStart = parseTimeHour(row.evening_start)
+    const eveningEnd = parseTimeHour(row.evening_end)
+    if (![morningStart, morningEnd, eveningStart, eveningEnd].every(Number.isFinite)) return null
     return {
       morningStart,
       morningEnd,
