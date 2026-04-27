@@ -1,4 +1,5 @@
 /* eslint-env node */
+/* global process */
 import { Pool } from 'pg'
 
 const DEFAULT_DB_CONFIG = {

@@ -53,12 +53,6 @@ const riskCounts = computed(() => {
   }
 })
 
-const summaryText = computed(() => {
-  if (!mapData.value?.summary) return '0 threatened species within 5km'
-  const count = mapData.value.summary.threatenedSpecies
-  return `${count} threatened species within 5km`
-})
-
 const threatenedCount = computed(() => mapData.value?.summary?.threatenedSpecies || 0)
 const totalSpeciesCount = computed(() => riskCounts.value.all)
 
@@ -742,9 +736,9 @@ onUnmounted(() => {
 
         <div class="impact-cta">
           <p>
-            Now that you know what's out there, check Cat's live scoreboard from your roaming logs.
+            Now that you know what's out there, check your suburb's pet cat impact score.
           </p>
-          <RouterLink to="/impact-score">View Cat's Scoreboard →</RouterLink>
+          <RouterLink to="/impact-score">View Impact Score →</RouterLink>
         </div>
       </div>
     </Transition>

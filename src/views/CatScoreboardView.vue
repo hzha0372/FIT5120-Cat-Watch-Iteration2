@@ -7,19 +7,19 @@ const error = ref('')
 const data = ref(null)
 let timer = null
 
-// Fetch impact dashboard data and update page state.
-const fetchDashboard = async () => {
+// Fetch Cat's Scoreboard data and update page state.
+const fetchScoreboard = async () => {
   loading.value = true
   error.value = ''
   try {
-    const response = await fetch('/api/impact-dashboard')
+    const response = await fetch('/api/cat-scoreboard')
     const payload = await response.json()
     if (!response.ok) {
-      throw new Error(payload?.error || 'Failed to load impact dashboard')
+      throw new Error(payload?.error || 'Failed to load Cat Scoreboard')
     }
     data.value = payload
   } catch (err) {
-    error.value = err?.message || 'Failed to load impact dashboard'
+    error.value = err?.message || 'Failed to load Cat Scoreboard'
   } finally {
     loading.value = false
   }
@@ -82,29 +82,29 @@ const scheduleLine = computed(() => {
 })
 
 onMounted(async () => {
-  await fetchDashboard()
-  timer = setInterval(fetchDashboard, 10000)
-  window.addEventListener('focus', fetchDashboard)
-  document.addEventListener('visibilitychange', fetchDashboard)
+  await fetchScoreboard()
+  timer = setInterval(fetchScoreboard, 10000)
+  window.addEventListener('focus', fetchScoreboard)
+  document.addEventListener('visibilitychange', fetchScoreboard)
 })
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
-  window.removeEventListener('focus', fetchDashboard)
-  document.removeEventListener('visibilitychange', fetchDashboard)
+  window.removeEventListener('focus', fetchScoreboard)
+  document.removeEventListener('visibilitychange', fetchScoreboard)
 })
 </script>
 
 <template>
-  <section class="impact-page">
-    <div class="impact-shell">
+  <section class="scoreboard-page">
+    <div class="scoreboard-shell">
       <header class="page-head">
         <p class="crumb">Cat's Scoreboard</p>
         <h1>Cat's Scoreboard</h1>
         <p>Track this month's encounters, prevention progress, and weekly containment trend for Cat.</p>
       </header>
 
-      <section class="impact-grid single">
+      <section class="scoreboard-grid single">
         <article class="scoreboard-card">
           <p class="card-label">Cat's scoreboard</p>
           <h2>Cat - this month</h2>
@@ -164,13 +164,13 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.impact-page {
+.scoreboard-page {
   min-height: calc(100dvh - 90px);
   background: #f3f4f2;
   padding: 14px;
 }
 
-.impact-shell {
+.scoreboard-shell {
   width: 100%;
   max-width: 1320px;
   margin: 0 auto;
@@ -200,7 +200,7 @@ onUnmounted(() => {
   color: #5d6a63;
 }
 
-.impact-grid {
+.scoreboard-grid {
   padding: 16px;
   display: grid;
   grid-template-columns: 1fr;

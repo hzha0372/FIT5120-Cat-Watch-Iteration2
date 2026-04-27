@@ -1,4 +1,5 @@
 /* eslint-env node */
+/* global process */
 import { Pool } from 'pg'
 
 const DEFAULT_DB_CONFIG = {
@@ -108,8 +109,8 @@ const getWeeklyForUser = (rows) => {
   }
 }
 
-// Query and assemble full impact dashboard data.
-const getDashboardData = async () => {
+// Query and assemble Cat's Scoreboard data from database tables.
+const getScoreboardData = async () => {
   const db = getPool()
 
   const userResult = await db.query(
@@ -327,7 +328,7 @@ const getDashboardData = async () => {
     const wildlifeDensityPct = Math.round(normalize100(row.wildlifeRaw, wildlifeMin, wildlifeMax))
     const petCatDensityPct = Math.round(normalize100(row.petDensityRaw, petDensityMin, petDensityMax))
     const containmentGapPct = Math.round(normalize100(row.containmentGapRaw, gapMin, gapMax))
-    const impactScore = Math.round(
+    const areaScore = Math.round(
       wildlifeDensityPct * weights.wildlifeDensity +
         petCatDensityPct * weights.petCatDensity +
         containmentGapPct * weights.containmentGap,
@@ -338,12 +339,12 @@ const getDashboardData = async () => {
       wildlifeDensityPct,
       petCatDensityPct,
       containmentGapPct,
-      impactScore: clamp(impactScore, 0, 100),
+      areaScore: clamp(areaScore, 0, 100),
     }
   })
 
   const ranked = [...scoredRows].sort((a, b) => {
-    if (b.impactScore !== a.impactScore) return b.impactScore - a.impactScore
+    if (b.areaScore !== a.areaScore) return b.areaScore - a.areaScore
     return a.suburbName.localeCompare(b.suburbName)
   })
 
@@ -402,8 +403,8 @@ const getDashboardData = async () => {
             : 'same',
       hasAtLeastOneWeek: weekly.allDaysCount >= 7,
     },
-    impact: {
-      score: current.impactScore,
+    localArea: {
+      score: current.areaScore,
       rank: current.rank,
       totalSuburbs,
       topPercent,
@@ -425,7 +426,7 @@ const getDashboardData = async () => {
         rank: r.rank,
         suburbName: r.suburbName,
         postcode: r.postcode,
-        score: r.impactScore,
+        score: r.areaScore,
         isYou: r.postcode === postcode,
       })),
       formula: {
@@ -437,12 +438,12 @@ const getDashboardData = async () => {
   }
 }
 
-// Handle API request and return aggregated response data.
+// Handle API request and return aggregated Cat's Scoreboard response data.
 export default async function handler(req, res) {
   try {
-    const data = await getDashboardData()
+    const data = await getScoreboardData()
     res.status(200).json(data)
   } catch (error) {
-    res.status(500).json({ error: error?.message || 'Unable to load impact dashboard.' })
+    res.status(500).json({ error: error?.message || 'Unable to load Cat Scoreboard.' })
   }
 }

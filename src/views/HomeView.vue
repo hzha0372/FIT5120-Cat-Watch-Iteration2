@@ -11,7 +11,7 @@ const fetchSummary = async () => {
   loading.value = true
   error.value = ''
   try {
-    const response = await fetch('/api/impact-dashboard')
+    const response = await fetch('/api/cat-scoreboard')
     const payload = await response.json()
     if (!response.ok) {
       throw new Error(payload?.error || 'Failed to load home data')
@@ -74,8 +74,8 @@ const clandestinePct = computed(() => Number(data.value?.behaviourStats?.clandes
 const preyMedianMonthly = computed(() => Number(data.value?.behaviourStats?.preyMedianMonthly?.value || 0))
 const threatenedSpeciesCount = computed(() =>
   Number(
-    data.value?.impact?.raw?.threatenedSpeciesCountDedupPoint ??
-      data.value?.impact?.raw?.threatenedSpeciesCount ??
+    data.value?.localArea?.raw?.threatenedSpeciesCountDedupPoint ??
+      data.value?.localArea?.raw?.threatenedSpeciesCount ??
       0,
   ),
 )
@@ -149,7 +149,7 @@ const threatenedSpeciesCount = computed(() =>
             <span class="step">2</span>
             <h4>Check your scoreboard</h4>
             <p>Review caused vs prevented estimates and weekly containment change over time.</p>
-            <RouterLink to="/impact-score">View Scoreboard →</RouterLink>
+            <RouterLink to="/cat-scoreboard">View Scoreboard →</RouterLink>
           </article>
           <article class="info-card">
             <span class="step">3</span>
@@ -170,9 +170,14 @@ const threatenedSpeciesCount = computed(() =>
             <RouterLink to="/risk-map">Open map →</RouterLink>
           </article>
           <article class="link-card">
+            <h4>Suburb Impact Score</h4>
+            <p>See the local pet cat impact score, source-backed components, and LGA ranking.</p>
+            <RouterLink to="/impact-score">View score →</RouterLink>
+          </article>
+          <article class="link-card">
             <h4>Cat's Scoreboard</h4>
             <p>Review your latest prevented-vs-caused encounter summary and weekly containment trend.</p>
-            <RouterLink to="/impact-score">View scoreboard →</RouterLink>
+            <RouterLink to="/cat-scoreboard">View scoreboard →</RouterLink>
           </article>
           <article class="link-card">
             <h4>Our Mission</h4>

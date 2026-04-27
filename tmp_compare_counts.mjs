@@ -1,3 +1,4 @@
+/* global process */
 import { Pool } from 'pg'
 
 const db = new Pool({

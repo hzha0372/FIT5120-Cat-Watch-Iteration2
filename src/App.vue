@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
+// Track logo loading so the header remains clean if the image asset is unavailable.
 const logoMissing = ref(false)
 const route = useRoute()
 </script>
@@ -22,6 +23,7 @@ const route = useRoute()
             <p>Protecting Wildlife, Responsible Pet Ownership</p>
           </div>
         </div>
+        <!-- Shared navigation stays outside individual views so every feature keeps one shell. -->
         <nav class="top-nav">
           <RouterLink to="/" class="nav-pill" :class="{ active: route.path === '/' }">
             Home
@@ -37,6 +39,13 @@ const route = useRoute()
             to="/impact-score"
             class="nav-pill"
             :class="{ active: route.path.startsWith('/impact-score') }"
+          >
+            Impact Score
+          </RouterLink>
+          <RouterLink
+            to="/cat-scoreboard"
+            class="nav-pill"
+            :class="{ active: route.path.startsWith('/cat-scoreboard') || route.path.startsWith('/my-dashboard') || route.path.startsWith('/dashboard') }"
           >
             Cat's Scoreboard
           </RouterLink>
@@ -136,6 +145,7 @@ const route = useRoute()
   color: #17462f;
   border-color: #a9c8af;
   background: #e5f1e7;
+  box-shadow: none;
 }
 
 @media (max-width: 960px) {
@@ -163,7 +173,13 @@ const route = useRoute()
   }
 
   .brand-text p {
+    display: block;
     font-size: 0.75rem;
+  }
+
+  .nav-pill {
+    font-size: 0.95rem;
+    padding: 7px 10px;
   }
 }
 </style>
