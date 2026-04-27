@@ -13,12 +13,18 @@ const error = ref('')
 const data = ref(null)
 const suggestions = ref([])
 const showSuggestions = ref(false)
+const selectedSuggestionPostcode = ref('')
+const selectedSuggestionLabel = ref('')
+const submittedInputLabel = ref('')
 let lookupTimer = null
+let lookupRequestId = 0
 let suggestionSubmitGuard = false
 let suggestionGuardTimer = null
 
 // Extract the first Victorian-style 4-digit postcode from free text input.
 const normalizePostcode = (value) => String(value || '').match(/\d{4}/)?.[0] || ''
+
+const startsWithPostcode = (value) => /^\d{1,4}/.test(String(value || '').trim())
 
 // Keep number formatting consistent between score cards, ranking rows, and side panels.
 const formatNumber = (value, digits = 0) => {
@@ -104,6 +110,8 @@ const cleanSuburbName = (postcode, name) => {
 const suggestionName = (item) => cleanSuburbName(item?.postcode, item?.name)
 
 const suggestionInputLabel = (item) => {
+  const displayQuery = String(item?.displayQuery || '').trim()
+  if (displayQuery) return displayQuery
   const postcode = String(item?.postcode || '').trim()
   const suburb = suggestionName(item)
   return [postcode, suburb].filter(Boolean).join(' ')
@@ -126,7 +134,8 @@ const loadScore = async (postcode) => {
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Failed to load Cat Impact Score.')
     data.value = payload
-    postcodeInput.value = scoreInputLabel(payload)
+    postcodeInput.value = submittedInputLabel.value || scoreInputLabel(payload)
+    submittedInputLabel.value = ''
   } catch (err) {
     data.value = null
     error.value = err?.message || 'Failed to load Cat Impact Score.'
@@ -138,6 +147,7 @@ const loadScore = async (postcode) => {
 // Fetch search suggestions from the suburb database as the user types.
 const lookupSuburbs = async () => {
   const q = postcodeInput.value.trim()
+  const requestId = ++lookupRequestId
   if (q.length < 2) {
     suggestions.value = []
     return
@@ -147,17 +157,23 @@ const lookupSuburbs = async () => {
   try {
     const response = await fetch(`/api/suburbs?q=${encodeURIComponent(q)}&limit=6`)
     const payload = await response.json()
+    if (requestId !== lookupRequestId || postcodeInput.value.trim() !== q) return
     suggestions.value = payload?.results || []
     showSuggestions.value = suggestions.value.length > 0
   } catch {
+    if (requestId !== lookupRequestId) return
     suggestions.value = []
   } finally {
-    lookupLoading.value = false
+    if (requestId === lookupRequestId) {
+      lookupLoading.value = false
+    }
   }
 }
 
 // Debounce suburb lookup to avoid firing a query on every keystroke.
 const onPostcodeInput = () => {
+  selectedSuggestionPostcode.value = ''
+  selectedSuggestionLabel.value = ''
   clearTimeout(lookupTimer)
   lookupTimer = setTimeout(lookupSuburbs, 160)
 }
@@ -165,6 +181,10 @@ const onPostcodeInput = () => {
 // Resolve either a direct postcode or a suburb name into one database postcode.
 const resolvePostcodeFromInput = async () => {
   const text = postcodeInput.value.trim()
+  if (selectedSuggestionPostcode.value && text === selectedSuggestionLabel.value) {
+    return selectedSuggestionPostcode.value
+  }
+
   const directPostcode = normalizePostcode(text)
   if (directPostcode) return directPostcode
 
@@ -195,7 +215,10 @@ const submitPostcode = async () => {
 
   try {
     error.value = ''
+    const wasDirectPostcode = Boolean(normalizePostcode(postcodeInput.value))
+    const hadSelectedSuggestion = Boolean(selectedSuggestionPostcode.value)
     const resolvedPostcode = await resolvePostcodeFromInput()
+    submittedInputLabel.value = (!wasDirectPostcode || hadSelectedSuggestion) ? postcodeInput.value.trim() : ''
     router.push({ path: '/impact-score', query: { postcode: resolvedPostcode } })
   } catch (err) {
     error.value = err?.message || 'Please enter a valid Victorian suburb or postcode.'
@@ -204,7 +227,10 @@ const submitPostcode = async () => {
 
 // Selecting a suggestion fills the input only; navigation happens through submitPostcode.
 const selectSuggestion = (item) => {
-  postcodeInput.value = suggestionInputLabel(item)
+  const label = suggestionInputLabel(item)
+  postcodeInput.value = label
+  selectedSuggestionLabel.value = label
+  selectedSuggestionPostcode.value = String(item?.postcode || '').trim()
   error.value = ''
   showSuggestions.value = false
   suggestionSubmitGuard = true
@@ -274,9 +300,9 @@ watch(
                 placeholder="Suburb or Postcode"
                 @focus="lookupSuburbs"
                 @input="onPostcodeInput"
-                @keydown.enter.prevent="submitPostcode"
+                @keydown.enter.prevent="showSuggestions = false"
               />
-              <button type="button" @mousedown.prevent="submitPostcode" @click="submitPostcode">
+              <button type="button" @mousedown.prevent @click="submitPostcode">
                 Show impact score
               </button>
             </div>
@@ -299,15 +325,13 @@ watch(
               @mouseup.prevent.stop="selectSuggestion(item)"
               @click.prevent.stop="selectSuggestion(item)"
             >
-              <strong>{{ item.postcode }}</strong>
+              <strong v-if="startsWithPostcode(postcodeInput)">{{ item.postcode }}</strong>
               <span v-if="suggestionName(item)">{{ suggestionName(item) }}</span>
             </button>
           </div>
-          <p v-if="lookupLoading" class="lookup-status">Searching database...</p>
         </div>
       </header>
 
-      <p v-if="loading" class="status">Loading pre-computed database score...</p>
       <p v-if="error" class="error">{{ error }}</p>
 
       <section v-if="!hasScore && !loading" class="empty-state">
