@@ -198,7 +198,7 @@ const getSchedule = async (postcode) => {
       morningEnd,
       eveningStart,
       eveningEnd,
-      label: `Simba's ${buildWindowLabel(morningStart, morningEnd)} and ${buildWindowLabel(eveningStart, eveningEnd)}`,
+      label: `Cat's ${buildWindowLabel(morningStart, morningEnd)} and ${buildWindowLabel(eveningStart, eveningEnd)}`,
       source: 'users-postcode',
     }
   }
@@ -228,7 +228,7 @@ const getSchedule = async (postcode) => {
       morningEnd,
       eveningStart,
       eveningEnd,
-      label: `Simba's ${buildWindowLabel(morningStart, morningEnd)} and ${buildWindowLabel(eveningStart, eveningEnd)}`,
+      label: `Cat's ${buildWindowLabel(morningStart, morningEnd)} and ${buildWindowLabel(eveningStart, eveningEnd)}`,
       source: 'users-aggregate',
     }
   }
@@ -468,7 +468,7 @@ export default async function handler(req, res) {
         lng: Number(item.lng),
         activityWindow,
         activityWindowDetail: activityWindowDetail(activityWindow),
-        overlapWithSimba: overlaps,
+        overlapWithCat: overlaps,
         overlapWindow: getOverlapWindowLabel(activityWindow, schedule, overlaps),
         recordedCount3y: recordedCount,
       }

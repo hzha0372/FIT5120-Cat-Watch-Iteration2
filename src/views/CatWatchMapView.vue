@@ -83,35 +83,35 @@ const formatConservation = (name) => {
 
 const overlapSummaryText = computed(() => {
   if (!selectedSpecies.value) return ''
-  if (selectedSpecies.value.overlapWithSimba) return selectedSpecies.value.overlapWindow || 'Yes'
+  if (selectedSpecies.value.overlapWithCat) return selectedSpecies.value.overlapWindow || 'Yes'
   return selectedSpecies.value.overlapWindow || 'No overlap'
 })
 
 const isHighRiskSpecies = computed(() => {
   if (!selectedSpecies.value) return false
-  return selectedSpecies.value.riskLevel === 'red' && selectedSpecies.value.overlapWithSimba
+  return selectedSpecies.value.riskLevel === 'red' && selectedSpecies.value.overlapWithCat
 })
 
 const riskPanelTitle = computed(() => {
   if (!isHighRiskSpecies.value) return ''
-  return `HIGH RISK - overlaps with Simba's roaming hours`
+  return `HIGH RISK - overlaps with Cat's roaming hours`
 })
 
 const riskPanelBody = computed(() => {
   if (!selectedSpecies.value) return ''
   if (isHighRiskSpecies.value) {
-    return `${selectedSpecies.value.commonName} is active at ${selectedSpecies.value.activityWindow.toLowerCase()} (${selectedSpecies.value.overlapWindow.replace('Yes - ', '')}). This overlaps directly with Simba's saved roaming window.`
+    return `${selectedSpecies.value.commonName} is active at ${selectedSpecies.value.activityWindow.toLowerCase()} (${selectedSpecies.value.overlapWindow.replace('Yes - ', '')}). This overlaps directly with Cat's saved roaming window.`
   }
-  if (selectedSpecies.value.riskLevel === 'amber' && selectedSpecies.value.overlapWithSimba) {
-    return `${selectedSpecies.value.commonName} overlaps with Simba's roaming hours (${selectedSpecies.value.overlapWindow.replace('Yes - ', '')}). This species is Vulnerable, so reduce outdoor roaming during that period.`
+  if (selectedSpecies.value.riskLevel === 'amber' && selectedSpecies.value.overlapWithCat) {
+    return `${selectedSpecies.value.commonName} overlaps with Cat's roaming hours (${selectedSpecies.value.overlapWindow.replace('Yes - ', '')}). This species is Vulnerable, so reduce outdoor roaming during that period.`
   }
-  if (selectedSpecies.value.overlapWithSimba) {
-    return `${selectedSpecies.value.commonName} overlaps with Simba's roaming hours (${selectedSpecies.value.overlapWindow.replace('Yes - ', '')}). Keep monitoring local sightings.`
+  if (selectedSpecies.value.overlapWithCat) {
+    return `${selectedSpecies.value.commonName} overlaps with Cat's roaming hours (${selectedSpecies.value.overlapWindow.replace('Yes - ', '')}). Keep monitoring local sightings.`
   }
   if (String(selectedSpecies.value.activityWindow || '').toLowerCase() === 'unknown') {
     return `No reliable activity-hour records are available for this species at this location yet. Continue monitoring nearby sightings and keep roaming windows conservative.`
   }
-  return `This species is active mainly at ${selectedSpecies.value.activityWindow.toLowerCase()}. Simba's 7-9am and 5-7pm windows have minimal overlap with its activity period.`
+  return `This species is active mainly at ${selectedSpecies.value.activityWindow.toLowerCase()}. Your saved roaming windows have minimal overlap with its activity period.`
 })
 
 // Extract postcode from input text.
@@ -676,7 +676,7 @@ onUnmounted(() => {
 
       <div v-if="reserveBanner" class="reserve-banner">
         <h3>{{ reserveBanner.name }} - {{ reserveBanner.type }}</h3>
-        <p>{{ reserveBanner.distanceLabel }} from your address · Simba could reach this boundary in a single outing.</p>
+        <p>{{ reserveBanner.distanceLabel }} from your address · Cat could reach this boundary in a single outing.</p>
       </div>
 
         <div class="map-wrap">
@@ -728,8 +728,8 @@ onUnmounted(() => {
               <dd>{{ selectedSpecies.recordedCount3y }} times · past 3 yrs</dd>
             </div>
             <div>
-              <dt>Simba's schedule risk</dt>
-              <dd :class="{ 'overlap-yes': selectedSpecies.overlapWithSimba }">
+              <dt>Cat's schedule risk</dt>
+              <dd :class="{ 'overlap-yes': selectedSpecies.overlapWithCat }">
                 {{ overlapSummaryText }}
               </dd>
             </div>
@@ -742,9 +742,9 @@ onUnmounted(() => {
 
         <div class="impact-cta">
           <p>
-            Now that you know what's out there, check Simba's live scoreboard from your roaming logs.
+            Now that you know what's out there, check Cat's live scoreboard from your roaming logs.
           </p>
-          <RouterLink to="/impact-score">View Simba's Scoreboard →</RouterLink>
+          <RouterLink to="/impact-score">View Cat's Scoreboard →</RouterLink>
         </div>
       </div>
     </Transition>

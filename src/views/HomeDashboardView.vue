@@ -99,15 +99,15 @@ onUnmounted(() => {
   <section class="impact-page">
     <div class="impact-shell">
       <header class="page-head">
-        <p class="crumb">Simba's Scoreboard</p>
-        <h1>{{ data?.user?.catName || 'Simba' }}'s Scoreboard</h1>
-        <p>Track this month's encounters, prevention progress, and weekly containment trend for {{ data?.user?.catName || 'your cat' }}.</p>
+        <p class="crumb">Cat's Scoreboard</p>
+        <h1>Cat's Scoreboard</h1>
+        <p>Track this month's encounters, prevention progress, and weekly containment trend for Cat.</p>
       </header>
 
       <section class="impact-grid single">
         <article class="scoreboard-card">
-          <p class="card-label">{{ data?.user?.catName || 'Cat' }}'s scoreboard</p>
-          <h2>{{ data?.user?.catName || 'Simba' }} - this month</h2>
+          <p class="card-label">Cat's scoreboard</p>
+          <h2>Cat - this month</h2>
           <p class="score-sub">{{ catProfileLine }}</p>
           <p class="schedule">Schedule: {{ scheduleLine }}</p>
 

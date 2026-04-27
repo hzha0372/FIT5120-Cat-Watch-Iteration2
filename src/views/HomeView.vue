@@ -26,8 +26,7 @@ const fetchSummary = async () => {
 
 onMounted(fetchSummary)
 
-const catName = computed(() => data.value?.user?.catName || 'Simba')
-const ownerName = computed(() => data.value?.user?.name || 'Cat owner')
+const catName = computed(() => 'Cat')
 const suburbName = computed(() => data.value?.user?.suburbName || 'Unknown suburb')
 const suburbCode = computed(() => data.value?.user?.postcode || '')
 const ageYears = computed(() => Number(data.value?.user?.catAgeYears || 0))
@@ -106,7 +105,7 @@ const threatenedSpeciesCount = computed(() =>
             <div class="cat-icon">🐱</div>
             <div>
               <h2>{{ catName }} · {{ ageYears || '-' }}-year-old {{ sexLabel }}</h2>
-              <p class="sub">{{ suburbName }} VIC {{ suburbCode }} · {{ ownerName }}</p>
+              <p class="sub">{{ suburbName }} VIC {{ suburbCode }} · Cat owner</p>
             </div>
           </div>
           <div class="risk-tags">
@@ -171,7 +170,7 @@ const threatenedSpeciesCount = computed(() =>
             <RouterLink to="/risk-map">Open map →</RouterLink>
           </article>
           <article class="link-card">
-            <h4>Simba's Scoreboard</h4>
+            <h4>Cat's Scoreboard</h4>
             <p>Review your latest prevented-vs-caused encounter summary and weekly containment trend.</p>
             <RouterLink to="/impact-score">View scoreboard →</RouterLink>
           </article>
