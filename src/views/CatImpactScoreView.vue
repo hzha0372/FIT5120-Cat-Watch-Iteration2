@@ -561,7 +561,7 @@ watch(
   grid-template-columns: 1fr;
   justify-items: center;
   text-align: center;
-  margin-bottom: 54px;
+  margin-bottom: 38px;
 }
 
 .page-header.empty-mode > div {
@@ -688,10 +688,10 @@ watch(
 }
 
 .empty-state {
-  min-height: 280px;
+  min-height: 0;
   display: grid;
   place-items: center;
-  align-content: center;
+  align-content: start;
   gap: 18px;
   text-align: center;
 }
