@@ -192,7 +192,6 @@ onMounted(fetchImpactFormula)
           Your score breaks down into three weighted components - each traceable to a
           named dataset or research paper.
         </p>
-        <p v-if="formulaLoading" class="formula-status">Loading score formula from database...</p>
         <p v-if="formulaError" class="formula-error">{{ formulaError }}</p>
         <div v-if="formulaComponents.length" class="weight-pills">
           <span v-for="item in formulaComponents" :key="item.key" :class="item.tone">
@@ -391,15 +390,10 @@ onMounted(fetchImpactFormula)
   font-weight: 900;
 }
 
-.formula-status,
 .formula-error {
   margin: 18px 0 0;
   font-size: 1rem;
   font-weight: 800;
-}
-
-.formula-status {
-  color: var(--cw-muted);
 }
 
 .formula-error {
