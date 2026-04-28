@@ -1,259 +1,352 @@
 <script setup>
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
-const catName = 'Cat'
+const loading = ref(false)
+const error = ref('')
+const missionStats = ref(null)
+
+const formatCount = (value) => {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '--'
+  return n.toLocaleString()
+}
+
+// Home summary numbers are a direct projection of /api/mission-stats coverage
+// counts. The card labels are static UI copy, but values are never hardcoded in
+// this view; failed API calls show an error instead of sample numbers.
+const stats = computed(() => {
+  const coverage = missionStats.value?.coverage || {}
+  return [
+    { value: formatCount(coverage.usersTracked), label: 'Users Tracked' },
+    { value: formatCount(coverage.speciesCached), label: 'Species Records Cached' },
+    { value: formatCount(coverage.reservesMapped), label: 'Reserves Mapped' },
+    { value: formatCount(coverage.roamingLogs), label: 'Roaming Logs' },
+  ]
+})
+
+const tools = [
+  {
+    title: 'Interactive Risk Map',
+    description: 'Explore geographic data showing cat impact zones across different regions',
+    to: '/risk-map',
+    icon: '⌖',
+    tone: 'cw-icon-blue',
+  },
+  {
+    title: 'Impact Score Calculator',
+    description: 'Calculate and understand the environmental impact score for your area',
+    to: '/impact-score',
+    icon: '↗',
+    tone: 'cw-icon-purple',
+  },
+  {
+    title: 'Cat Scoreboard',
+    description: 'View rankings and compare impact metrics across different regions',
+    to: '/cat-scoreboard',
+    icon: '♙',
+    tone: 'cw-icon-orange',
+  },
+  {
+    title: 'About CatWatch',
+    description: 'Learn about our vision to protect wildlife and promote responsible pet ownership',
+    to: '/about',
+    icon: '◎',
+    tone: 'cw-icon-emerald',
+  },
+]
+
+// Fetch once on page load so Home always reflects the current database counts
+// from users, species_cache, reserves, and roaming_log.
+const fetchMissionStats = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const response = await fetch('/api/mission-stats')
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload?.error || 'Failed to load database stats.')
+    missionStats.value = payload
+  } catch (err) {
+    error.value = err?.message || 'Failed to load database stats.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(fetchMissionStats)
 </script>
 
 <template>
-  <section class="home-page">
-    <div class="home-shell">
-      <section class="hero-grid">
-        <article class="hero-main">
-          <h1>
-            {{ catName }} came home.
-            <br />
-            <span>Now every log counts.</span>
-          </h1>
-          <p>
-            While {{ catName }} was outside this morning, threatened species were active within 5km of your home.
-            See exactly which ones - and what you can do about it.
+  <main class="home-prototype cw-page-white">
+    <section class="home-hero">
+      <div class="cw-container cw-text-center">
+        <span class="cw-pill">Environmental Impact Tracking</span>
+        <h1>
+          <span class="title-line title-dark">Understanding Cat Impact</span>
+          <span class="title-line title-green">On Wildlife &amp; Environment</span>
+        </h1>
+        <p>
+          Comprehensive data analysis and visualization platform helping communities make
+          informed decisions about cat management and wildlife conservation.
+        </p>
+        <div class="hero-actions">
+          <RouterLink class="cw-button cw-button-primary" to="/risk-map">
+            Explore Risk Map
+          </RouterLink>
+          <RouterLink class="cw-button cw-button-secondary" to="/impact-score">
+            Calculate Impact
+          </RouterLink>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-band">
+      <div class="cw-container">
+        <p v-if="loading" class="status-line">Loading database stats...</p>
+        <p v-if="error" class="error-line">{{ error }}</p>
+        <div class="cw-grid cw-grid-4">
+          <article v-for="item in stats" :key="item.label" class="stat-item">
+            <strong>{{ item.value }}</strong>
+            <span>{{ item.label }}</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="tools-section">
+      <div class="cw-container">
+        <div class="cw-text-center section-heading">
+          <h2 class="cw-section-title">Powerful Tools for Impact Analysis</h2>
+          <p class="cw-section-subtitle">
+            Comprehensive suite of tools to monitor, analyze, and understand environmental impact
           </p>
-          <RouterLink to="/risk-map" class="btn-primary">Show me what's out there →</RouterLink>
-        </article>
-      </section>
-
-      <section class="section-block">
-        <p class="section-label">How CatWatch works</p>
-        <h3>Four steps to understanding {{ catName }}'s impact</h3>
-        <div class="card-grid four">
-          <article class="info-card">
-            <span class="step">1</span>
-            <h4>See what's near you</h4>
-            <p>Open threatened species records near your suburb, grouped by conservation status.</p>
-            <RouterLink to="/risk-map">Open Risk Map →</RouterLink>
-          </article>
-          <article class="info-card">
-            <span class="step">2</span>
-            <h4>Measure suburb impact</h4>
-            <p>Check your local pet cat impact score, source-backed components, and LGA ranking.</p>
-            <RouterLink to="/impact-score">View Impact Score →</RouterLink>
-          </article>
-          <article class="info-card">
-            <span class="step">3</span>
-            <h4>Check your scoreboard</h4>
-            <p>Review caused vs prevented estimates and weekly containment change over time.</p>
-            <RouterLink to="/cat-scoreboard">View Scoreboard →</RouterLink>
-          </article>
-          <article class="info-card">
-            <span class="step">4</span>
-            <h4>Understand the bigger picture</h4>
-            <p>Learn why these local choices matter for wildlife, and how CatWatch helps turn insight into action.</p>
-            <RouterLink to="/vision-mission">Read Our Mission →</RouterLink>
-          </article>
         </div>
-      </section>
 
-      <section class="section-block alt">
-        <p class="section-label">Explore</p>
-        <h3>Where do you want to start?</h3>
-        <div class="card-grid four">
-          <article class="link-card">
-            <h4>Wildlife Risk Map</h4>
-            <p>Check threatened species recorded near your suburb and identify high-risk roaming windows.</p>
-            <RouterLink to="/risk-map">Open map →</RouterLink>
-          </article>
-          <article class="link-card">
-            <h4>Suburb Impact Score</h4>
-            <p>See the local pet cat impact score, source-backed components, and LGA ranking.</p>
-            <RouterLink to="/impact-score">View score →</RouterLink>
-          </article>
-          <article class="link-card">
-            <h4>Cat's Scoreboard</h4>
-            <p>Review your latest prevented-vs-caused encounter summary and weekly containment trend.</p>
-            <RouterLink to="/cat-scoreboard">View scoreboard →</RouterLink>
-          </article>
-          <article class="link-card">
-            <h4>Our Mission</h4>
-            <p>Understand CatWatch's purpose and the live evidence behind each feature.</p>
-            <RouterLink to="/vision-mission">Read more →</RouterLink>
-          </article>
+        <div class="tool-grid">
+          <RouterLink
+            v-for="tool in tools"
+            :key="tool.title"
+            class="tool-card cw-card"
+            :to="tool.to"
+          >
+            <span class="cw-icon-tile" :class="tool.tone">{{ tool.icon }}</span>
+            <h3>{{ tool.title }}</h3>
+            <p>{{ tool.description }}</p>
+            <strong>Explore <span>→</span></strong>
+          </RouterLink>
         </div>
-      </section>
-    </div>
-  </section>
+      </div>
+    </section>
+
+    <section class="cta-section">
+      <div class="cta-panel">
+        <h2>Ready to Get Started?</h2>
+        <p>Check your area's impact score and discover how you can make a difference</p>
+        <RouterLink to="/impact-score">Calculate Impact Score</RouterLink>
+      </div>
+    </section>
+  </main>
 </template>
 
 <style scoped>
-.home-page {
-  min-height: calc(100dvh - 90px);
-  background: #f3f4f2;
-  padding: 14px;
+.home-prototype {
+  min-height: calc(100dvh - 101px);
+  color: var(--cw-text);
 }
 
-.home-shell {
-  width: 100%;
-  max-width: 1320px;
-  margin: 0 auto;
-  border: 1px solid #d7ddd7;
-  background: #fafbfa;
+.home-hero {
+  padding: 42px 16px 48px;
 }
 
-.hero-grid {
-  border-bottom: 1px solid #d7ddd7;
+.home-hero h1 {
+  margin: 20px auto 0;
+  max-width: 1280px;
+  color: var(--cw-text);
+  font-size: clamp(2.75rem, 4.9vw, 4.25rem);
+  line-height: 1.08;
+  font-weight: 900;
 }
 
-.hero-main {
-  background: linear-gradient(145deg, #166338 0%, #135a33 40%, #0f4f2d 100%);
-  color: #eef5f0;
-  min-height: 300px;
-  padding: 42px 46px;
+.title-line {
+  display: block;
+}
+
+.title-dark {
+  white-space: nowrap;
+}
+
+.title-green {
+  color: var(--cw-emerald);
+  white-space: nowrap;
+}
+
+.home-hero p {
+  max-width: 850px;
+  margin: 20px auto 0;
+  color: var(--cw-muted);
+  font-size: clamp(1.05rem, 1.8vw, 1.24rem);
+  line-height: 1.45;
+}
+
+.hero-actions {
+  margin-top: 26px;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   justify-content: center;
+  gap: 16px;
 }
 
-.hero-main h1 {
-  margin-top: 0;
-  font-size: 3rem;
-  line-height: 1.1;
-  font-weight: 800;
-}
-
-.hero-main h1 span {
-  color: #7ef0a7;
-}
-
-.hero-main p {
-  margin-top: 14px;
-  max-width: 720px;
-  color: #d7e8db;
-  font-size: 1.03rem;
-}
-
-.btn-primary {
-  margin-top: 18px;
-  display: inline-block;
-  width: 50%;
-  text-decoration: none;
-  color: #123d28;
-  background: #59e087;
-  border: 1px solid #63e78f;
-  border-radius: 10px;
-  padding: 11px 16px;
-  font-weight: 800;
-}
-
-.section-block {
-  padding: 26px 20px;
-  border-bottom: 1px solid #e1e4e1;
-}
-
-.section-block.alt {
-  background: #f6f8f6;
-}
-
-.section-label {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 1.03rem;
-  color: #6f7772;
-  font-weight: 700;
-}
-
-.section-block h3 {
-  margin-top: 6px;
-  font-size: 2rem;
-  color: #1f2e27;
-}
-
-.card-grid {
-  margin-top: 14px;
-  display: grid;
-  gap: 14px;
-}
-
-.card-grid.three {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.card-grid.four {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.info-card,
-.link-card {
-  border: 1px solid #dde3dd;
+.stats-band {
   background: #ffffff;
-  border-radius: 12px;
-  padding: 14px;
+  padding: 34px 16px;
 }
 
-.step {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #175b35;
-  color: #fff;
-  font-size: 0.82rem;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
+.stat-item {
+  text-align: center;
 }
 
-.info-card h4,
-.link-card h4 {
-  margin-top: 10px;
-  font-size: 1.2rem;
-  color: #1f2d27;
+.stat-item strong {
+  display: block;
+  color: var(--cw-emerald);
+  font-size: clamp(1.85rem, 3vw, 2.45rem);
+  line-height: 1;
+  font-weight: 900;
 }
 
-.info-card p,
-.link-card p {
+.stat-item span {
+  display: block;
   margin-top: 8px;
-  color: #5f6d65;
-  min-height: 72px;
+  color: var(--cw-muted);
+  font-size: 1rem;
 }
 
-.info-card a,
-.link-card a {
-  color: #1c5e38;
+.status-line,
+.error-line {
+  margin: 0 0 18px;
+  text-align: center;
+  font-weight: 750;
+}
+
+.status-line {
+  color: var(--cw-muted);
+}
+
+.error-line {
+  color: #b91c1c;
+}
+
+.tools-section {
+  padding: 48px 16px;
+  background: #f9fafb;
+}
+
+.section-heading {
+  margin-bottom: 34px;
+}
+
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.tool-card {
+  min-height: 210px;
+  padding: 24px;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.tool-card:hover {
+  border-color: #a7f3d0;
+  box-shadow: 0 20px 35px rgba(17, 24, 39, 0.12);
+  transform: translateY(-2px);
+}
+
+.tool-card h3 {
+  margin: 18px 0 0;
+  color: var(--cw-text);
+  font-size: 1.38rem;
+  line-height: 1.2;
+  font-weight: 850;
+}
+
+.tool-card p {
+  margin: 12px 0 0;
+  color: var(--cw-muted);
+  font-size: 1.02rem;
+  line-height: 1.48;
+}
+
+.tool-card strong {
+  display: inline-flex;
+  gap: 8px;
+  margin-top: 18px;
+  color: var(--cw-emerald);
+  font-size: 1.05rem;
+}
+
+.cta-section {
+  padding: 48px 16px;
+  background: #f9fafb;
+}
+
+.cta-panel {
+  width: min(100%, 1024px);
+  margin: 0 auto;
+  border-radius: 24px;
+  padding: 34px;
+  text-align: center;
+  color: #ffffff;
+  background: linear-gradient(90deg, var(--cw-emerald), var(--cw-teal));
+}
+
+.cta-panel h2 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  line-height: 1.15;
+  font-weight: 900;
+}
+
+.cta-panel p {
+  margin: 14px 0 0;
+  font-size: 1.12rem;
+}
+
+.cta-panel a {
+  display: inline-flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 24px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--cw-emerald);
+  padding: 0 32px;
   text-decoration: none;
   font-weight: 800;
-}
-
-@media (max-width: 1180px) {
-  .card-grid.four {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 980px) {
-  .card-grid.three,
-  .card-grid.four {
+  .home-hero {
+    padding-top: 44px;
+  }
+
+  .tool-grid {
     grid-template-columns: 1fr;
   }
 
-  .hero-main {
-    min-height: 260px;
-    padding: 32px 24px;
+  .title-dark,
+  .title-green {
+    white-space: normal;
   }
 
-  .hero-main h1 {
-    font-size: 2.35rem;
-  }
-
-  .btn-primary {
-    width: fit-content;
-    max-width: 100%;
-  }
-
-  .section-block h3 {
-    font-size: 1.65rem;
-  }
-
-  .info-card p,
-  .link-card p {
-    min-height: 0;
+  .cta-panel {
+    padding: 36px 22px;
   }
 }
 </style>

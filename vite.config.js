@@ -7,6 +7,7 @@ import catwatchHandler from './api/catwatch.js'
 import suburbsHandler from './api/suburbs.js'
 import catScoreboardHandler from './api/cat-scoreboard.js'
 import catImpactScoreHandler from './api/cat-impact-score.js'
+import impactFormulaHandler from './api/impact-formula.js'
 import missionStatsHandler from './api/mission-stats.js'
 
 // Adapt function-style handler into Vite middleware.
@@ -47,6 +48,7 @@ export default defineConfig({
         server.middlewares.use('/api/suburbs', createApiMiddleware(suburbsHandler))
         server.middlewares.use('/api/cat-scoreboard', createApiMiddleware(catScoreboardHandler))
         server.middlewares.use('/api/cat-impact-score', createApiMiddleware(catImpactScoreHandler))
+        server.middlewares.use('/api/impact-formula', createApiMiddleware(impactFormulaHandler))
         server.middlewares.use('/api/mission-stats', createApiMiddleware(missionStatsHandler))
       },
     },

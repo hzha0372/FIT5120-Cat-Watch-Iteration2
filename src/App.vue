@@ -50,11 +50,11 @@ const route = useRoute()
             Cat's Scoreboard
           </RouterLink>
           <RouterLink
-            to="/vision-mission"
+            to="/about"
             class="nav-pill"
-            :class="{ active: route.path.startsWith('/vision-mission') }"
+            :class="{ active: route.path.startsWith('/about') || route.path.startsWith('/vision-mission') }"
           >
-            Our Mission
+            About
           </RouterLink>
         </nav>
       </div>

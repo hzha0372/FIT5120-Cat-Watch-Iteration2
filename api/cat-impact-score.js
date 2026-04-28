@@ -10,6 +10,10 @@ const DEFAULT_DB_CONFIG = {
   database: 'echoes_of_earth',
 }
 
+// These weights define how the three database-backed component scores add up
+// to the final Cat Impact Score. The raw values and per-suburb component scores
+// still come from suburb_scores; these constants are the formula contract used
+// to interpret those stored database columns consistently across API responses.
 const COMPONENT_WEIGHTS = {
   containmentGap: 45,
   wildlifeDensity: 35,
@@ -97,6 +101,9 @@ const sourceText = (source, fallback) => {
 }
 
 // Load source labels and ownership-rate metadata used in the score explanation.
+// This keeps the UI text traceable to database source rows instead of embedding
+// research/source names in the Vue component. If a source row is missing, the
+// response still exposes a conservative label, but no suburb score is invented.
 const getSources = async (db) => {
   const [statsResult, ownershipResult] = await Promise.all([
     db.query(
@@ -128,7 +135,10 @@ const getSources = async (db) => {
   }
 }
 
-// Transform one suburb_scores row into the three weighted cards required by US4.1.
+// Transform one suburb_scores row into the three weighted cards shown on the
+// Impact Score page. Every displayed score/raw value is read from the selected
+// suburb_scores row; this function only attaches labels, units, and source text
+// so the frontend can render the cards without knowing database column names.
 const buildComponentRows = (row, sources) => [
   {
     key: 'containmentGap',
@@ -168,7 +178,10 @@ const buildComponentRows = (row, sources) => [
   },
 ]
 
-// Build the LGA comparison list directly from pre-computed suburb score rows.
+// Build the full LGA comparison list directly from pre-computed suburb score
+// rows. This is intentionally not driven by user records, sample postcodes, or
+// frontend state: the selected suburb's LGA decides the comparison group, then
+// every row is sorted by the real total_impact_score stored in the database.
 const getRankingRows = async (db, lgaName) => {
   const result = await db.query(
     `SELECT TRIM(s.postcode) AS postcode,
@@ -208,7 +221,27 @@ const getRankingRows = async (db, lgaName) => {
   })
 }
 
-// Assemble the page payload for one postcode from database-backed score and suburb tables.
+// Return a stable ranking window for the UI. The previous frontend-only slice
+// could hide the searched suburb when it was outside the top rows. This function
+// always keeps the selected postcode in the returned list, centered where
+// possible, while still respecting the real row count for small LGAs.
+const buildRankingWindow = (rows, selectedPostcode, size = 8) => {
+  const list = Array.isArray(rows) ? rows : []
+  if (list.length <= size) return list
+
+  const currentIndex = list.findIndex((item) => item.postcode === selectedPostcode)
+  if (currentIndex < 0) return list.slice(0, size)
+
+  const half = Math.floor(size / 2)
+  let start = currentIndex - half
+  start = Math.max(0, Math.min(start, list.length - size))
+  return list.slice(start, start + size)
+}
+
+// Assemble the complete page payload for one postcode from database-backed score
+// and suburb tables. The handler fails loudly when a postcode has no
+// suburb_scores row, because showing placeholder or guessed scores would violate
+// the project's "real database data only" rule.
 const getImpactScore = async (postcode) => {
   const db = getPool()
   const targetResult = await db.query(
@@ -242,7 +275,12 @@ const getImpactScore = async (postcode) => {
   const lgaName = String(row.lga_name || '').trim()
   const [sources, rankingRows] = await Promise.all([getSources(db), getRankingRows(db, lgaName)])
   const selectedPostcode = cleanPostcode(row.postcode)
-  const currentRank = rankingRows.find((item) => item.postcode === selectedPostcode) || null
+  const markedRankingRows = rankingRows.map((item) => ({
+    ...item,
+    isCurrent: item.postcode === selectedPostcode,
+  }))
+  const currentRank = markedRankingRows.find((item) => item.postcode === selectedPostcode) || null
+  const rankingWindow = buildRankingWindow(markedRankingRows, selectedPostcode)
   const totalScore = toNum(row.total_impact_score)
 
   return {
@@ -268,10 +306,7 @@ const getImpactScore = async (postcode) => {
             isCurrent: true,
           }
         : null,
-      rows: rankingRows.map((item) => ({
-        ...item,
-        isCurrent: item.postcode === selectedPostcode,
-      })),
+      rows: rankingWindow,
     },
     formula: {
       note: 'All score values are read from pre-computed database rows in suburb_scores.',

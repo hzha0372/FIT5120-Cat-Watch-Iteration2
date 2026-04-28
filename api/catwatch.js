@@ -363,7 +363,10 @@ export default async function handler(req, res) {
 
     let location = null
 
-    // Prefer explicit lat/lng from the selected suburb; otherwise fallback to postcode lookup.
+    // Prefer explicit lat/lng from a selected suburb suggestion, then use the
+    // postcode to pull the official suburb name from suburb_demographics. This
+    // keeps the map centered on the user's chosen database location without
+    // inventing coordinates in the frontend.
     if (hasExplicitCoords) {
       const fromDb = /^\d{4}$/.test(postcodeCandidate) ? await getPostcodeLocation(postcodeCandidate) : null
       location = {
@@ -403,6 +406,10 @@ export default async function handler(req, res) {
     }
 
     // Build per-species activity statistics from local cached observations.
+    // These observation_hour values come from species_cache. When a local
+    // postcode has no meaningful hours, the code later falls back to global
+    // profiles from the same database table so the overlap explanation still
+    // comes from real observations rather than a hand-written default.
     const speciesFrequency = new Map()
     const speciesHourProfile = new Map()
     const speciesHourSet = new Map()
@@ -431,6 +438,8 @@ export default async function handler(req, res) {
     const globalProfiles = await loadGlobalHourProfiles(fallbackSpeciesKeys)
 
     // De-duplicate map pins so the same species at the same point appears once.
+    // The database cache can contain repeated observations; de-duplication
+    // changes only map readability, not the summary counts returned above.
     const dedupedRows = []
     const seenPinKey = new Set()
     for (const row of rawSpecies) {
@@ -444,7 +453,9 @@ export default async function handler(req, res) {
       dedupedRows.push(row)
     }
 
-    // Transform DB rows into API-friendly species objects used by the frontend map.
+    // Transform DB rows into API-friendly species objects used by the frontend
+    // map. Risk colors are derived from state_conservation, and cat overlap is
+    // calculated from database user schedules plus database observation hours.
     const species = dedupedRows.map((item, idx) => {
       const speciesKey = String(item.scientific_name || '').trim().toLowerCase()
       const localProfile = speciesHourProfile.get(speciesKey)

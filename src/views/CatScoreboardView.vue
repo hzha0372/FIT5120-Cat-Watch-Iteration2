@@ -1,433 +1,514 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
 
 const loading = ref(false)
 const error = ref('')
 const data = ref(null)
-let timer = null
 
-// Fetch Cat's Scoreboard data and update page state.
+const formatNumber = (value, digits = 0) => {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '--'
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })
+}
+
+const rankingRows = computed(() => data.value?.ranking || [])
+const distributionRows = computed(() => data.value?.distribution || rankingRows.value)
+const topRow = computed(() => rankingRows.value[0] || null)
+
+const riskClass = (riskKey) => `risk-${riskKey || 'lower'}`
+
+// Summary cards are derived from /api/cat-scoreboard, which aggregates
+// suburb_scores and species_cache. The labels are UI text; all numbers come
+// from the API payload so the page has no demo scoreboard metrics.
+const stats = computed(() => [
+  {
+    label: 'Total Regions Tracked',
+    value: formatNumber(data.value?.summary?.totalRegions),
+    trend: `${data.value?.scope?.label || 'Victoria'} database rows`,
+  },
+  {
+    label: 'Average Score',
+    value: formatNumber(data.value?.summary?.averageScore, 1),
+    trend: `Max ${formatNumber(data.value?.summary?.maxScore, 1)} from suburb_scores`,
+  },
+  {
+    label: 'Threatened Records',
+    value: formatNumber(data.value?.summary?.threatenedRecords),
+    trend: `${formatNumber(data.value?.summary?.threatenedSpecies)} species cached`,
+  },
+])
+
+const criteria = computed(() =>
+  (data.value?.criteria || []).map((item) => [item.label, `${Math.round(Number(item.weightPct || 0))}%`]),
+)
+
+// Load the statewide scoreboard once for the page. The API intentionally does
+// not use a default user, so the frontend never decides which suburb should be
+// highlighted or ranked.
 const fetchScoreboard = async () => {
   loading.value = true
   error.value = ''
   try {
     const response = await fetch('/api/cat-scoreboard')
     const payload = await response.json()
-    if (!response.ok) {
-      throw new Error(payload?.error || 'Failed to load Cat Scoreboard')
-    }
+    if (!response.ok) throw new Error(payload?.error || 'Failed to load Cat Scoreboard.')
     data.value = payload
   } catch (err) {
-    error.value = err?.message || 'Failed to load Cat Scoreboard'
+    error.value = err?.message || 'Failed to load Cat Scoreboard.'
   } finally {
     loading.value = false
   }
 }
 
-const causedDisplay = computed(() =>
-  Number.isFinite(Number(data.value?.scoreboard?.causedEstimated))
-    ? Number(data.value.scoreboard.causedEstimated).toFixed(2)
-    : '0.00',
-)
-const preventedDisplay = computed(() =>
-  Number.isFinite(Number(data.value?.scoreboard?.preventedEstimated))
-    ? Number(data.value.scoreboard.preventedEstimated).toFixed(2)
-    : '0.00',
-)
-
-const thisWeek = computed(() => Number(data.value?.weekly?.thisWeekContained || 0))
-const lastWeek = computed(() => Number(data.value?.weekly?.lastWeekContained || 0))
-const maxBar = computed(() => Math.max(thisWeek.value, lastWeek.value, 1))
-const thisWeekWidth = computed(() => `${Math.round((thisWeek.value / maxBar.value) * 100)}%`)
-const lastWeekWidth = computed(() => `${Math.round((lastWeek.value / maxBar.value) * 100)}%`)
-const thisWeekBetter = computed(() => thisWeek.value >= lastWeek.value)
-const weeklyReady = computed(() => Boolean(data.value?.weekly?.hasAtLeastOneWeek))
-const updatedAtText = computed(() => {
-  const iso = data.value?.updatedAt
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleString()
-})
-
-const catProfileLine = computed(() => {
-  const suburb = data.value?.user?.suburbName || 'Unknown suburb'
-  const sexRaw = String(data.value?.user?.catSex || '').toUpperCase()
-  const sex = sexRaw === 'M' ? 'male' : sexRaw === 'F' ? 'female' : 'male'
-  const age = Number(data.value?.user?.catAgeYears || 0)
-  return `${suburb} · ${age > 0 ? `${age}-year-old` : '-'} ${sex} outdoor cat`
-})
-
-// Format time into a readable display string.
-const formatTime = (value) => {
-  const txt = String(value || '')
-  const m = txt.match(/^(\d{1,2}):(\d{2})/)
-  if (!m) return ''
-  const h24 = Number(m[1])
-  const minute = m[2]
-  const suffix = h24 >= 12 ? 'PM' : 'AM'
-  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
-  if (minute === '00') return `${h12} ${suffix}`
-  return `${h12}:${minute} ${suffix}`
-}
-
-const scheduleLine = computed(() => {
-  const mo = formatTime(data.value?.schedule?.morningOut)
-  const mi = formatTime(data.value?.schedule?.morningIn)
-  const eo = formatTime(data.value?.schedule?.eveningOut)
-  const ei = formatTime(data.value?.schedule?.eveningIn)
-  if (!mo || !mi || !eo || !ei) return 'Schedule unavailable'
-  return `${mo}-${mi} · ${eo}-${ei}`
-})
-
-onMounted(async () => {
-  await fetchScoreboard()
-  timer = setInterval(fetchScoreboard, 10000)
-  window.addEventListener('focus', fetchScoreboard)
-  document.addEventListener('visibilitychange', fetchScoreboard)
-})
-
-onUnmounted(() => {
-  if (timer) clearInterval(timer)
-  window.removeEventListener('focus', fetchScoreboard)
-  document.removeEventListener('visibilitychange', fetchScoreboard)
-})
+onMounted(fetchScoreboard)
 </script>
 
 <template>
-  <section class="scoreboard-page">
-    <div class="scoreboard-shell">
-      <header class="page-head">
-        <p class="crumb">Cat's Scoreboard</p>
-        <h1>Cat's Scoreboard</h1>
-        <p>Track this month's encounters, prevention progress, and weekly containment trend for Cat.</p>
+  <main class="scoreboard-prototype cw-page">
+    <div class="cw-container">
+      <header class="scoreboard-header">
+        <h1 class="cw-page-title">Cat Impact Scoreboard</h1>
+        <p class="cw-page-subtitle">
+          Regional rankings based on conservation efforts and environmental impact metrics
+        </p>
       </header>
 
-      <section class="scoreboard-grid single">
-        <article class="scoreboard-card">
-          <p class="card-label">Cat's scoreboard</p>
-          <h2>Cat - this month</h2>
-          <p class="score-sub">{{ catProfileLine }}</p>
-          <p class="schedule">Schedule: {{ scheduleLine }}</p>
+      <p v-if="loading" class="status-line">Loading database scoreboard...</p>
+      <p v-if="error" class="error-line">{{ error }}</p>
 
-          <div class="duo-grid">
-            <div class="duo danger">
-              <strong>{{ causedDisplay }}</strong>
-              <span>Encounters caused</span>
-              <small>{{ data?.scoreboard?.roamingEvenings || 0 }} roaming evenings × prey-per-day estimate.</small>
-            </div>
-            <div class="duo safe">
-              <strong>{{ preventedDisplay }}</strong>
-              <span>Prevented by you</span>
-              <small>{{ data?.scoreboard?.containedEvenings || 0 }} contained evenings × prey-per-day estimate.</small>
-            </div>
-          </div>
-
-          <section class="weekly-card">
-            <h3>Contained evenings - this week vs last week</h3>
-            <div v-if="weeklyReady" class="week-row">
-              <div>
-                <span>This week</span>
-                <p>{{ thisWeek }} evenings</p>
-              </div>
-              <div class="line-bar"><i class="this" :style="{ width: thisWeekWidth }" /></div>
-            </div>
-            <div v-if="weeklyReady" class="week-row">
-              <div>
-                <span>Last week</span>
-                <p>{{ lastWeek }} evenings</p>
-              </div>
-              <div class="line-bar"><i class="last" :style="{ width: lastWeekWidth }" /></div>
-            </div>
-            <p v-if="weeklyReady" class="week-note" :class="{ down: !thisWeekBetter }">
-              {{ thisWeekBetter ? 'Great work: this week is on track or better.' : 'This week is currently below last week.' }}
-            </p>
-            <p v-else class="week-note">Need at least one full week of logs to compare trends.</p>
-          </section>
-
-          <article class="sighting-box">
-            <h4>Want to explore further?</h4>
-            <p>Read Our Mission to understand the purpose and data behind CatWatch.</p>
-            <div class="links-row">
-              <RouterLink to="/vision-mission">Read Our Mission →</RouterLink>
-            </div>
-          </article>
+      <section class="cw-grid cw-grid-3 stats-grid" aria-label="Scoreboard summary">
+        <article v-for="item in stats" :key="item.label" class="cw-card cw-card-pad summary-card">
+          <p>{{ item.label }}</p>
+          <strong>{{ item.value }}</strong>
+          <span>{{ item.trend }}</span>
         </article>
       </section>
 
-      <p v-if="updatedAtText" class="updated">Updated: {{ updatedAtText }}</p>
-      <p v-if="loading" class="status">Refreshing live data...</p>
-      <p v-if="error" class="error">{{ error }}</p>
+      <section class="scoreboard-layout">
+        <article class="ranking-panel cw-card">
+          <header>
+            <span aria-hidden="true">♕</span>
+            <h2>Top Rankings</h2>
+          </header>
+
+          <!-- Ranking rows are real Victoria rows returned by the API, not local examples. -->
+          <div class="ranking-list">
+            <article
+              v-for="row in rankingRows"
+              :key="row.postcode"
+              class="ranking-row"
+              :class="[riskClass(row.risk?.key), { highlighted: row.rank <= 3 }]"
+            >
+              <div class="rank-badge" :class="row.rank === 1 ? 'gold' : row.rank === 2 ? 'silver' : row.rank === 3 ? 'bronze' : 'plain'">
+                {{ row.rank <= 3 ? '♕' : `#${row.rank}` }}
+              </div>
+              <div class="rank-copy">
+                <h3>{{ row.suburbName }}</h3>
+                <p>
+                  Postcode: {{ row.postcode }} • {{ formatNumber(row.roamingCats) }} cats •
+                  {{ formatNumber(row.wildlifeRecords) }} wildlife records
+                </p>
+              </div>
+              <div class="rank-score">
+                <strong>{{ formatNumber(row.score, 1) }}</strong>
+                <span>{{ row.risk?.label || 'Impact score' }}</span>
+              </div>
+            </article>
+          </div>
+        </article>
+
+        <aside class="score-side">
+          <section class="cw-card cw-card-pad">
+            <h2 class="side-heading">Score Distribution</h2>
+            <div class="chart" aria-label="Score distribution bar chart">
+              <div class="y-axis">
+                <span>100</span>
+                <span>75</span>
+                <span>50</span>
+                <span>25</span>
+                <span>0</span>
+              </div>
+              <div class="bar-area">
+                <div class="grid-line one" />
+                <div class="grid-line two" />
+                <div class="grid-line three" />
+                <div class="grid-line four" />
+                <!-- Bars reuse the same database rows as Top Rankings for visual consistency. -->
+                <i
+                  v-for="row in distributionRows"
+                  :key="`${row.postcode}-bar`"
+                  :class="riskClass(row.risk?.key)"
+                  :style="{ height: `${Math.max(2, Math.min(100, Number(row.score || 0)))}%` }"
+                >
+                  <span>{{ row.postcode }}</span>
+                </i>
+              </div>
+            </div>
+          </section>
+
+          <section class="cw-card cw-card-pad">
+            <h2 class="side-heading">Scoring Criteria</h2>
+            <dl class="criteria-list">
+              <div v-for="[label, value] in criteria" :key="label">
+                <dt>{{ label }}</dt>
+                <dd>{{ value }}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section v-if="topRow" class="award-card">
+            <span>🏆</span>
+            <h2>Top Performer Award</h2>
+            <p>
+              {{ topRow.suburbName }} leads the Victoria database ranking with an impact score of
+              {{ formatNumber(topRow.score, 1) }} from suburb_scores.
+            </p>
+          </section>
+        </aside>
+      </section>
     </div>
-  </section>
+  </main>
 </template>
 
 <style scoped>
-.scoreboard-page {
-  min-height: calc(100dvh - 90px);
-  background: #f3f4f2;
-  padding: 14px;
+.scoreboard-header {
+  margin-bottom: 32px;
 }
 
-.scoreboard-shell {
-  width: 100%;
-  max-width: 1320px;
-  margin: 0 auto;
-  border: 1px solid #d8ddd8;
-  background: #f9faf9;
+.status-line,
+.error-line {
+  margin: -12px 0 24px;
+  font-weight: 750;
 }
 
-.page-head {
-  padding: 18px 18px 14px;
-  border-bottom: 1px solid #e2e5e2;
+.status-line {
+  color: var(--cw-muted);
 }
 
-.crumb {
-  color: #7a827d;
-  font-size: 0.82rem;
+.error-line {
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff1f2;
+  color: #b91c1c;
+  padding: 12px 14px;
 }
 
-.page-head h1 {
-  margin-top: 4px;
-  color: #1f2e27;
-  font-size: 2rem;
-  font-weight: 800;
+.stats-grid {
+  margin-bottom: 32px;
 }
 
-.page-head p {
-  margin-top: 6px;
-  color: #5d6a63;
-}
-
-.scoreboard-grid {
-  padding: 16px;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-}
-
-.scoreboard-card {
-  border: 1px solid #dde2dd;
-  background: #fff;
-  border-radius: 14px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-}
-
-.card-label {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #7b837f;
-  font-size: 1.03rem;
-  font-weight: 700;
-}
-
-.scoreboard-card h2 {
-  margin-top: 8px;
-  font-size: 1.7rem;
-  color: #1f2f27;
-  font-weight: 800;
-}
-
-.score-sub {
-  color: #6d7771;
-  margin-top: 3px;
-  font-size: 0.9rem;
-}
-
-.schedule {
-  margin-top: 3px;
-  color: #4f6258;
-  font-weight: 700;
-  font-size: 0.9rem;
-}
-
-.duo-grid {
-  margin-top: 12px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.duo {
-  border-radius: 12px;
-  padding: 12px;
-  border: 1px solid #dee3de;
-}
-
-.duo.danger {
-  background: #fff1f1;
-  border-color: #efc8c8;
-}
-
-.duo.safe {
-  background: #eef8ee;
-  border-color: #cce6cf;
-}
-
-.duo strong {
-  font-size: 2rem;
-  line-height: 1;
-  color: #1f3d2f;
-}
-
-.duo span {
-  display: block;
-  margin-top: 5px;
-  font-weight: 700;
-  color: #30453a;
-}
-
-.duo small {
-  display: block;
-  margin-top: 4px;
-  color: #63726a;
-  font-size: 0.8rem;
-}
-
-.weekly-card {
-  margin-top: 14px;
-  border: 1px solid #e2e6e2;
-  border-radius: 12px;
-  padding: 12px;
-  background: #fbfcfb;
-}
-
-.weekly-card h3 {
+.summary-card p {
   margin: 0;
-  font-size: 1.12rem;
-  color: #2f3f36;
+  color: #4b5563;
+  font-size: 1.03rem;
 }
 
-.week-row {
-  margin-top: 10px;
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  align-items: center;
-  gap: 10px;
+.summary-card strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--cw-text);
+  font-size: 2.05rem;
+  line-height: 1;
+  font-weight: 900;
 }
 
-.week-row span {
-  color: #6a746f;
+.summary-card span {
+  display: block;
+  margin-top: 14px;
+  color: var(--cw-emerald);
   font-size: 0.95rem;
 }
 
-.week-row p {
-  margin: 2px 0 0;
-  color: #2f3f36;
-  font-weight: 700;
-  font-size: 1.02rem;
+.scoreboard-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(310px, 0.95fr);
+  gap: 32px;
+  align-items: start;
 }
 
-.line-bar {
-  height: 12px;
-  border-radius: 999px;
-  background: #ebefeb;
+.ranking-panel {
   overflow: hidden;
 }
 
-.line-bar i {
-  display: block;
-  height: 100%;
+.ranking-panel > header {
+  min-height: 78px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid var(--cw-border);
+  background: linear-gradient(90deg, #ecfdf5, #f0fdfa);
+  padding: 24px;
 }
 
-.line-bar .this {
-  background: #32834d;
+.ranking-panel > header span {
+  color: var(--cw-emerald);
+  font-size: 1.7rem;
 }
 
-.line-bar .last {
-  background: #b7c1ba;
-}
-
-.week-note {
-  margin: 10px 0 0;
-  color: #2f7646;
-  font-size: 0.98rem;
-  font-weight: 700;
-}
-
-.week-note.down {
-  color: #a83c3c;
-}
-
-.sighting-box {
-  margin-top: 12px;
-  border: 1px solid #e2e6e2;
-  border-radius: 12px;
-  padding: 12px;
-  background: #fff;
-  margin-left: auto;
-  width: fit-content;
-  max-width: 100%;
-}
-
-.sighting-box h4 {
+.ranking-panel h2,
+.side-heading {
   margin: 0;
-  color: #2b3d33;
+  color: var(--cw-text);
+  font-size: 1.28rem;
+  line-height: 1.2;
+  font-weight: 850;
 }
 
-.sighting-box p {
-  margin: 5px 0 0;
-  color: #65726b;
+.ranking-list {
+  display: grid;
+}
+
+.ranking-row {
+  min-height: 109px;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid #f3f4f6;
+  padding: 24px;
+}
+
+.ranking-row:last-child {
+  border-bottom: 0;
+}
+
+.ranking-row.highlighted {
+  background: linear-gradient(90deg, #f9fafb, #ffffff);
+}
+
+.ranking-row.risk-high {
+  border-left: 4px solid #ef4444;
+}
+
+.ranking-row.risk-medium {
+  border-left: 4px solid #f59e0b;
+}
+
+.ranking-row.risk-lower {
+  border-left: 4px solid #22c55e;
+}
+
+.rank-badge {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.rank-badge.gold {
+  background: #f6b300;
+  color: #ffffff;
+  box-shadow: 0 10px 20px rgba(245, 158, 11, 0.22);
+}
+
+.rank-badge.silver {
+  background: #c7ced8;
+  color: #374151;
+}
+
+.rank-badge.bronze {
+  background: #ff680a;
+  color: #ffffff;
+}
+
+.rank-copy h3 {
+  margin: 0;
+  color: var(--cw-text);
+  font-size: 1.15rem;
+  font-weight: 850;
+}
+
+.rank-copy small {
+  margin-left: 6px;
   font-size: 0.9rem;
 }
 
-.links-row {
-  margin-top: 8px;
-  display: block;
-}
-
-.sighting-box a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  min-height: 0;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: #1d6b3c;
-  border: 1px solid #2a7e4b;
-  color: #f5fbf7;
-  text-decoration: none;
-  font-weight: 800;
+.rank-copy p {
+  margin: 8px 0 0;
+  color: var(--cw-muted);
   font-size: 0.95rem;
-  box-shadow: 0 3px 8px rgba(16, 69, 38, 0.2);
 }
 
-.sighting-box a:hover {
-  background: #1a6036;
+.rank-score {
+  min-width: 58px;
+  text-align: right;
 }
 
-.updated,
-.status,
-.error {
-  margin: 0 16px 16px;
-  font-size: 0.86rem;
+.rank-score strong {
+  display: block;
+  color: var(--cw-emerald);
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 900;
 }
 
-.updated,
-.status {
-  color: #5d6d63;
+.ranking-row.risk-high .rank-score strong {
+  color: #dc2626;
 }
 
-.error {
-  color: #a12f2f;
+.ranking-row.risk-medium .rank-score strong {
+  color: #d97706;
 }
 
-@media (max-width: 980px) {
-  .page-head h1 {
-    font-size: 1.55rem;
-  }
-
-  .week-row {
-    grid-template-columns: 1fr;
-  }
+.ranking-row.risk-lower .rank-score strong {
+  color: #16a34a;
 }
 
-@media (max-width: 700px) {
-  .duo-grid {
+.rank-score span {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.up {
+  color: #16a34a;
+}
+
+.score-side {
+  display: grid;
+  gap: 24px;
+}
+
+.chart {
+  height: 244px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 26px;
+}
+
+.y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  color: #6b7280;
+  font-size: 0.78rem;
+  padding-bottom: 20px;
+}
+
+.bar-area {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+  border-left: 2px solid #9ca3af;
+  border-bottom: 2px solid #9ca3af;
+  padding: 0 8px 20px;
+}
+
+.bar-area i {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-radius: 9px 9px 0 0;
+  background: #10b981;
+  min-height: 18px;
+  font-style: normal;
+}
+
+.bar-area i.risk-high {
+  background: linear-gradient(180deg, #ef4444, #dc2626);
+}
+
+.bar-area i.risk-medium {
+  background: linear-gradient(180deg, #f59e0b, #d97706);
+}
+
+.bar-area i.risk-lower {
+  background: linear-gradient(180deg, #22c55e, #16a34a);
+}
+
+.bar-area i span {
+  position: absolute;
+  bottom: -20px;
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.grid-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.grid-line.one {
+  top: 0;
+}
+
+.grid-line.two {
+  top: 25%;
+}
+
+.grid-line.three {
+  top: 50%;
+}
+
+.grid-line.four {
+  top: 75%;
+}
+
+.criteria-list {
+  margin: 20px 0 0;
+  display: grid;
+  gap: 14px;
+}
+
+.criteria-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.criteria-list dt {
+  color: #374151;
+}
+
+.criteria-list dd {
+  margin: 0;
+  color: var(--cw-text);
+  font-weight: 850;
+}
+
+.award-card {
+  border-radius: var(--cw-card-radius);
+  background: linear-gradient(135deg, #10b981, #0d9488);
+  color: #ffffff;
+  padding: 24px;
+}
+
+.award-card span {
+  font-size: 2rem;
+}
+
+.award-card h2 {
+  margin: 20px 0 0;
+  font-size: 1.22rem;
+  font-weight: 850;
+}
+
+.award-card p {
+  margin: 14px 0 0;
+  max-width: 270px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1040px) {
+  .scoreboard-layout {
     grid-template-columns: 1fr;
   }
 }

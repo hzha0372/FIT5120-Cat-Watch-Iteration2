@@ -56,3 +56,217 @@
 .species-tip::before {
   display: none;
 }
+
+/*
+  Shared page system matched to the five-page Figma Make prototype.
+  The app shell header stays separate; these classes style the view content below it.
+*/
+:root {
+  --cw-page-bg: #f9fafb;
+  --cw-surface: #ffffff;
+  --cw-border: #e5e7eb;
+  --cw-border-strong: #e0e4ea;
+  --cw-text: #111827;
+  --cw-muted: #4b5563;
+  --cw-soft-muted: #6b7280;
+  --cw-emerald: #059669;
+  --cw-emerald-dark: #047857;
+  --cw-teal: #0d9488;
+  --cw-blue: #2563eb;
+  --cw-card-radius: 16px;
+  --cw-small-radius: 12px;
+  --cw-shadow: 0 10px 24px rgba(17, 24, 39, 0.08);
+}
+
+.cw-page {
+  min-height: calc(100dvh - 101px);
+  background: var(--cw-page-bg);
+  color: var(--cw-text);
+  padding: 38px 16px 64px;
+}
+
+.cw-page-white {
+  background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
+}
+
+.cw-container {
+  width: min(100%, 1280px);
+  margin: 0 auto;
+}
+
+.cw-container-narrow {
+  width: min(100%, 1024px);
+  margin: 0 auto;
+}
+
+.cw-page-title {
+  margin: 0;
+  color: var(--cw-text);
+  font-size: clamp(2.25rem, 5vw, 3rem);
+  line-height: 1.12;
+  font-weight: 850;
+}
+
+.cw-page-subtitle {
+  margin: 12px 0 0;
+  color: var(--cw-muted);
+  font-size: clamp(1.12rem, 2vw, 1.5rem);
+  line-height: 1.55;
+}
+
+.cw-section-title {
+  margin: 0;
+  color: var(--cw-text);
+  font-size: clamp(2rem, 4vw, 2.5rem);
+  line-height: 1.15;
+  font-weight: 850;
+}
+
+.cw-section-subtitle {
+  margin: 14px auto 0;
+  max-width: 720px;
+  color: var(--cw-muted);
+  font-size: 1.28rem;
+  line-height: 1.45;
+}
+
+.cw-card {
+  background: var(--cw-surface);
+  border: 2px solid var(--cw-border);
+  border-radius: var(--cw-card-radius);
+}
+
+.cw-card-pad {
+  padding: 24px;
+}
+
+.cw-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.cw-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cw-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cw-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cw-button {
+  display: inline-flex;
+  min-height: 60px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 0 32px;
+  border: 2px solid transparent;
+  text-decoration: none;
+  font-weight: 750;
+  font-size: 1rem;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.cw-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.12);
+}
+
+.cw-button-primary {
+  color: #ffffff;
+  background: linear-gradient(90deg, var(--cw-emerald), var(--cw-teal));
+}
+
+.cw-button-secondary {
+  color: var(--cw-text);
+  background: #ffffff;
+  border-color: var(--cw-border-strong);
+}
+
+.cw-button-secondary:hover {
+  border-color: #10b981;
+}
+
+.cw-icon-tile {
+  display: inline-grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.cw-icon-blue {
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+}
+
+.cw-icon-purple {
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+}
+
+.cw-icon-orange {
+  background: linear-gradient(135deg, #f97316, #ef4444);
+}
+
+.cw-icon-emerald {
+  background: linear-gradient(135deg, #10b981, #14b8a6);
+}
+
+.cw-icon-pink {
+  background: linear-gradient(135deg, #ec4899, #f43f5e);
+}
+
+.cw-icon-violet {
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+}
+
+.cw-icon-amber {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+}
+
+.cw-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #047857;
+  padding: 10px 18px;
+  font-weight: 750;
+}
+
+.cw-text-center {
+  text-align: center;
+}
+
+.cw-muted {
+  color: var(--cw-muted);
+}
+
+.cw-emerald-text {
+  color: var(--cw-emerald);
+}
+
+@media (max-width: 980px) {
+  .cw-grid-2,
+  .cw-grid-3,
+  .cw-grid-4 {
+    grid-template-columns: 1fr;
+  }
+
+  .cw-page {
+    padding-top: 28px;
+  }
+
+  .cw-card-pad {
+    padding: 20px;
+  }
+}

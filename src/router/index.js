@@ -26,7 +26,8 @@ const routes = [
     component: CatScoreboardView,
   },
   {
-    path: '/vision-mission',
+    path: '/about',
+    alias: ['/vision-mission'],
     component: VisionMissionView,
   },
   {
