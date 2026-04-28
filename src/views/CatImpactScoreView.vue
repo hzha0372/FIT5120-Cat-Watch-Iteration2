@@ -468,7 +468,6 @@ watch(
               <span>#</span>
               <span>Suburb</span>
               <span>Score bar</span>
-              <span>Containment</span>
               <span>Total</span>
             </div>
 
@@ -488,7 +487,6 @@ watch(
               <span class="score-bar" aria-hidden="true">
                 <i :style="rowBarStyle(row)" />
               </span>
-              <span class="containment-cell">{{ formatNumber(row.containmentGapRaw, 1) }}% no containment</span>
               <span class="total-cell">{{ Math.round(row.totalScore) }}<small>/100</small></span>
             </button>
           </div>
@@ -1254,8 +1252,8 @@ watch(
 .ranking-head,
 .ranking-row {
   display: grid;
-  grid-template-columns: 44px minmax(180px, 1fr) 240px 130px 72px;
-  gap: 12px;
+  grid-template-columns: 44px minmax(180px, 1fr) minmax(180px, 300px) 72px;
+  gap: 16px;
   align-items: center;
 }
 
@@ -1326,11 +1324,6 @@ watch(
   border-radius: inherit;
 }
 
-.containment-cell {
-  color: #60665f;
-  font-size: 0.78rem;
-}
-
 .total-cell {
   text-align: right;
   font-size: 1.26rem;
@@ -1384,9 +1377,7 @@ watch(
   }
 
   .ranking-head span:nth-child(3),
-  .ranking-head span:nth-child(4),
-  .score-bar,
-  .containment-cell {
+  .score-bar {
     display: none;
   }
 }
