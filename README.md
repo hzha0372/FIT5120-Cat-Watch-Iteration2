@@ -1,12 +1,13 @@
-# Cat Watch (FIT5120 - US1.1 to US1.3)
+# CatWatch
 
-This project now implements the new **Cat Watch** wildlife risk map features:
+CatWatch is a Vue and Vite single-page app for understanding local pet cat wildlife impact in Victoria.
 
-- US1.1 Interactive Risk Map (5km species pins, colour-coded by status)
-- US1.2 Risk Warning Card (species details + overlap with Cat's roaming schedule)
-- US1.3 Closest No-go Zone (nearest reserve polygon + distance)
-- US4.1/US4.2 Suburb Cat Impact Score (pre-computed suburb_scores + LGA ranking)
-- Coverage update: project scope has expanded from Melbourne pilot work to statewide Victoria.
+Core features:
+
+- Wildlife Risk Map with 5km threatened-species records and conservation-status filters
+- Suburb Cat Impact Score with source-backed score components and LGA ranking
+- Cat's Scoreboard with prevented-vs-caused encounter estimates and weekly trend
+- Our Mission page with live evidence from the project database
 
 ## Run
 
@@ -28,19 +29,13 @@ The API route `api/catwatch.js` supports your existing schema:
 - `cats_behaviour_stats`
 
 The project queries the real database directly for:
+
 - suburb lookup
 - species points and conservation status
 - peak activity and Cat schedule overlap
 - nearest reserve boundary and distance
 - pre-computed Cat Impact Score components and LGA comparison ranking
 
-## Pair Programming
-
-For team development, follow the Pair Programming document:
-- Assign one `Driver` and one `Navigator` at the start of each coding session.
-- Swap `Driver` and `Navigator` roles regularly during the session.
-
 ## Notes
 
-- Replace `/public/images/catwatch-logo.png` with your final Cat Watch logo file.
 - During local dev, Vite serves `/api/catwatch`, `/api/suburbs`, and `/api/cat-impact-score` via middleware in `vite.config.js`.

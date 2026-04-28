@@ -74,7 +74,7 @@ const catName = 'Cat'
           </article>
           <article class="link-card">
             <h4>Our Mission</h4>
-            <p>Understand purpose and live evidence from your database, without static placeholder numbers.</p>
+            <p>Understand CatWatch's purpose and the live evidence behind each feature.</p>
             <RouterLink to="/vision-mission">Read more →</RouterLink>
           </article>
         </div>
