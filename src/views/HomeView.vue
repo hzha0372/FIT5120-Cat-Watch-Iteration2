@@ -137,8 +137,8 @@ const threatenedSpeciesCount = computed(() =>
 
       <section class="section-block">
         <p class="section-label">How CatWatch works</p>
-        <h3>Three steps to understanding {{ catName }}'s impact</h3>
-        <div class="card-grid three">
+        <h3>Four steps to understanding {{ catName }}'s impact</h3>
+        <div class="card-grid four">
           <article class="info-card">
             <span class="step">1</span>
             <h4>See what's near you</h4>
@@ -147,12 +147,18 @@ const threatenedSpeciesCount = computed(() =>
           </article>
           <article class="info-card">
             <span class="step">2</span>
+            <h4>Measure suburb impact</h4>
+            <p>Check your local pet cat impact score, source-backed components, and LGA ranking.</p>
+            <RouterLink to="/impact-score">View Impact Score →</RouterLink>
+          </article>
+          <article class="info-card">
+            <span class="step">3</span>
             <h4>Check your scoreboard</h4>
             <p>Review caused vs prevented estimates and weekly containment change over time.</p>
             <RouterLink to="/cat-scoreboard">View Scoreboard →</RouterLink>
           </article>
           <article class="info-card">
-            <span class="step">3</span>
+            <span class="step">4</span>
             <h4>Understand the bigger picture</h4>
             <p>Learn why these local choices matter for wildlife, and how CatWatch helps turn insight into action.</p>
             <RouterLink to="/vision-mission">Read Our Mission →</RouterLink>
@@ -163,7 +169,7 @@ const threatenedSpeciesCount = computed(() =>
       <section class="section-block alt">
         <p class="section-label">Explore</p>
         <h3>Where do you want to start?</h3>
-        <div class="card-grid three">
+        <div class="card-grid four">
           <article class="link-card">
             <h4>Wildlife Risk Map</h4>
             <p>Check threatened species recorded near your suburb and identify high-risk roaming windows.</p>
@@ -424,6 +430,10 @@ const threatenedSpeciesCount = computed(() =>
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.card-grid.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .info-card,
 .link-card {
   border: 1px solid #dde3dd;
@@ -479,9 +489,16 @@ const threatenedSpeciesCount = computed(() =>
   color: #a12f2f;
 }
 
+@media (max-width: 1180px) {
+  .card-grid.four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 980px) {
   .hero-grid,
-  .card-grid.three {
+  .card-grid.three,
+  .card-grid.four {
     grid-template-columns: 1fr;
   }
 
