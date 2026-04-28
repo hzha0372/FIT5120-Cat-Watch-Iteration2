@@ -1,39 +1,7 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
-const loading = ref(false)
-const error = ref('')
-const data = ref(null)
-
-// Fetch home summary data and update page state.
-const fetchSummary = async () => {
-  loading.value = true
-  error.value = ''
-  try {
-    const response = await fetch('/api/cat-scoreboard')
-    const payload = await response.json()
-    if (!response.ok) {
-      throw new Error(payload?.error || 'Failed to load home data')
-    }
-    data.value = payload
-  } catch (err) {
-    error.value = err?.message || 'Failed to load home data'
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(fetchSummary)
-
-const catName = computed(() => 'Cat')
-const threatenedSpeciesCount = computed(() =>
-  Number(
-    data.value?.localArea?.raw?.threatenedSpeciesCountDedupPoint ??
-      data.value?.localArea?.raw?.threatenedSpeciesCount ??
-      0,
-  ),
-)
+const catName = 'Cat'
 </script>
 
 <template>
@@ -47,8 +15,8 @@ const threatenedSpeciesCount = computed(() =>
             <span>Now every log counts.</span>
           </h1>
           <p>
-            While {{ catName }} was outside this morning, {{ threatenedSpeciesCount }} threatened species were active
-            within 5km of your home. See exactly which ones - and what you can do about it.
+            While {{ catName }} was outside this morning, threatened species were active within 5km of your home.
+            See exactly which ones - and what you can do about it.
           </p>
           <RouterLink to="/risk-map" class="btn-primary">Show me what's out there →</RouterLink>
         </article>
@@ -111,9 +79,6 @@ const threatenedSpeciesCount = computed(() =>
           </article>
         </div>
       </section>
-
-      <p v-if="loading" class="status">Loading live summary...</p>
-      <p v-if="error" class="error">{{ error }}</p>
     </div>
   </section>
 </template>
@@ -254,20 +219,6 @@ const threatenedSpeciesCount = computed(() =>
   color: #1c5e38;
   text-decoration: none;
   font-weight: 800;
-}
-
-.status,
-.error {
-  margin: 12px 20px 20px;
-  font-size: 0.92rem;
-}
-
-.status {
-  color: #45614f;
-}
-
-.error {
-  color: #a12f2f;
 }
 
 @media (max-width: 1180px) {
