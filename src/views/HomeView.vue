@@ -27,8 +27,6 @@ const fetchSummary = async () => {
 onMounted(fetchSummary)
 
 const catName = computed(() => 'Cat')
-const suburbName = computed(() => data.value?.user?.suburbName || 'Unknown suburb')
-const suburbCode = computed(() => data.value?.user?.postcode || '')
 const threatenedSpeciesCount = computed(() =>
   Number(
     data.value?.localArea?.raw?.threatenedSpeciesCountDedupPoint ??
