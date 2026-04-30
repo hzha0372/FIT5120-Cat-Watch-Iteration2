@@ -10,23 +10,23 @@ const DEFAULT_DB_CONFIG = {
   database: 'echoes_of_earth',
 }
 
+const PREY_RATE_FALLBACK = 0.0667
+
 let pool = null
 
-// Safely convert input to integer with fallback.
 const toInt = (v, fallback = 0) => {
   const n = Number(v)
-  return Number.isFinite(n) ? n : fallback
+  return Number.isFinite(n) ? Math.round(n) : fallback
 }
 
-// Safely convert input to number with fallback.
 const toNum = (v, fallback = 0) => {
   const n = Number(v)
   return Number.isFinite(n) ? n : fallback
 }
 
-// Get and reuse database connection pool.
 const getPool = () => {
   if (pool) return pool
+
   const hasUrl = Boolean(process.env.DATABASE_URL)
   const config = hasUrl
     ? { connectionString: process.env.DATABASE_URL }
@@ -46,135 +46,331 @@ const getPool = () => {
   return pool
 }
 
-const riskLevelForScore = (score) => {
-  const value = toNum(score, 0)
-  if (value > 70) return { key: 'high', label: 'High impact' }
-  if (value >= 40) return { key: 'medium', label: 'Medium impact' }
-  return { key: 'lower', label: 'Lower impact' }
+const monthStartUtc = () => {
+  const now = new Date()
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10)
 }
 
-// Query and assemble a statewide Cat Scoreboard from database score rows.
-// The scoreboard deliberately does not select a default user or postcode; it is
-// a Victoria-wide ranking built from suburb_scores, suburb_demographics, and
-// species_cache. That prevents old demo/default suburbs from leaking into the UI.
-const getScoreboardData = async () => {
-  const db = getPool()
+const toIsoDate = (value) => {
+  if (!value) return null
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString().slice(0, 10)
+}
 
-  // Run the summary, wildlife, and ranking queries in parallel because they are
-  // independent database reads. All three are required for the page cards:
-  // summary cards, threatened record totals, and the Top Rankings list.
-  const [statsResult, threatenedResult, rowsResult] = await Promise.all([
+const diffDays = (laterIso, earlierIso) => {
+  const later = new Date(`${laterIso}T00:00:00Z`).getTime()
+  const earlier = new Date(`${earlierIso}T00:00:00Z`).getTime()
+  return Math.round((later - earlier) / 86400000)
+}
+
+const getMilestones = (streakDays) => {
+  const defs = [
+    { days: 3, icon: 'seedling', label: '3 days' },
+    { days: 7, icon: 'star', label: '7 days' },
+    { days: 14, icon: 'medal', label: '14 days' },
+    { days: 30, icon: 'trophy', label: '30 days' },
+    { days: 60, icon: 'diamond', label: '60 days' },
+  ]
+
+  return defs.map((item) => ({
+    ...item,
+    unlocked: streakDays >= item.days,
+  }))
+}
+
+const getScoreboardData = async (options = {}) => {
+  const db = getPool()
+  const monthStart = monthStartUtc()
+
+  const preyRateResult = await db.query(
+    `SELECT stat_value
+     FROM cats_behaviour_stats
+     WHERE stat_name = 'prey_per_day'
+     LIMIT 1`,
+  )
+  const preyPerDay = toNum(preyRateResult.rows?.[0]?.stat_value, PREY_RATE_FALLBACK)
+
+  const resolvedUser =
+    options.userId || options.postcode
+      ? (
+          await db.query(
+            `SELECT id, name, cat_name, TRIM(postcode) AS postcode
+             FROM users
+             WHERE ($1::int IS NULL OR id = $1::int)
+               AND ($2::text IS NULL OR TRIM(postcode) = TRIM($2::text))
+             ORDER BY id ASC
+             LIMIT 1`,
+            [options.userId || null, options.postcode || null],
+          )
+        ).rows?.[0]
+      : (
+          await db.query(
+            `SELECT id, name, cat_name, TRIM(postcode) AS postcode
+             FROM users
+             ORDER BY id ASC
+             LIMIT 1`,
+          )
+        ).rows?.[0]
+
+  if (!resolvedUser?.id) {
+    throw new Error('No user row found to calculate Cat Scoreboard metrics.')
+  }
+
+  const todayIsoResult = await db.query(`SELECT CURRENT_DATE::text AS today_iso`)
+  const todayIso = todayIsoResult.rows?.[0]?.today_iso
+
+  const [userIndoorDaysResult, userMonthResult, suburbResult] = await Promise.all([
     db.query(
-      `SELECT COUNT(*)::int AS total_regions,
-              ROUND(AVG(s.total_impact_score)::numeric, 1)::float AS average_score,
-              ROUND(MAX(s.total_impact_score)::numeric, 1)::float AS max_score
-       FROM suburb_scores s
-       JOIN suburb_demographics d ON TRIM(d.postcode) = TRIM(s.postcode)
-       WHERE d.state = 'VIC'
-         AND s.total_impact_score IS NOT NULL`,
+      `SELECT DISTINCT rl.log_date::date AS day
+       FROM roaming_log rl
+       WHERE rl.user_id = $1
+         AND LOWER(TRIM(rl.status)) LIKE '%indoor%'
+       ORDER BY day DESC`,
+      [resolvedUser.id],
     ),
     db.query(
-      `SELECT COUNT(*)::int AS threatened_records,
-              COUNT(DISTINCT LOWER(TRIM(sc.scientific_name)))::int AS threatened_species
-       FROM species_cache sc
-       JOIN suburb_demographics d ON TRIM(d.postcode) = TRIM(sc.postcode)
-       WHERE d.state = 'VIC'
-         AND (
-           LOWER(COALESCE(sc.state_conservation, '')) LIKE '%critical%'
-           OR LOWER(COALESCE(sc.state_conservation, '')) LIKE '%endangered%'
-           OR LOWER(COALESCE(sc.state_conservation, '')) LIKE '%vulnerable%'
-         )`,
+      `SELECT COUNT(*) FILTER (WHERE LOWER(TRIM(status)) LIKE '%indoor%')::int AS indoor_count,
+              COUNT(*) FILTER (WHERE LOWER(TRIM(status)) LIKE '%roam%')::int AS roaming_count
+       FROM roaming_log
+       WHERE user_id = $1
+         AND log_date::date >= $2::date`,
+      [resolvedUser.id, monthStart],
     ),
     db.query(
-      `WITH threatened_species AS (
-       SELECT TRIM(postcode) AS postcode,
-              COUNT(DISTINCT LOWER(TRIM(scientific_name)))::int AS threatened_species_count
-       FROM species_cache
-       WHERE (
-           LOWER(COALESCE(state_conservation, '')) LIKE '%critical%'
-           OR LOWER(COALESCE(state_conservation, '')) LIKE '%endangered%'
-           OR LOWER(COALESCE(state_conservation, '')) LIKE '%vulnerable%'
-         )
-       GROUP BY TRIM(postcode)
-     )
-     SELECT TRIM(s.postcode) AS postcode,
-            d.suburb_name,
-            d.lga_name,
-            d.population,
-            d.household_count,
-            s.total_impact_score,
-            s.containment_gap_raw,
-            s.wildlife_density_raw,
-            s.cat_density_raw,
-            COALESCE(ts.threatened_species_count, 0)::int AS threatened_species_count
-     FROM suburb_scores s
-     JOIN suburb_demographics d ON TRIM(d.postcode) = TRIM(s.postcode)
-     LEFT JOIN threatened_species ts ON ts.postcode = TRIM(s.postcode)
-     WHERE d.state = 'VIC'
-       AND s.total_impact_score IS NOT NULL
-     ORDER BY s.total_impact_score DESC NULLS LAST,
-              d.suburb_name ASC,
-              TRIM(s.postcode) ASC
-     LIMIT 24`,
+      `SELECT suburb_name, lga_name
+       FROM suburb_demographics
+       WHERE TRIM(postcode) = $1
+       LIMIT 1`,
+      [String(resolvedUser.postcode || '').trim()],
     ),
   ])
 
-  const summary = statsResult.rows?.[0] || {}
-  const wildlife = threatenedResult.rows?.[0] || {}
-  // Convert raw database rows into the exact structure used by the Vue page.
-  // No fallback ranking rows are created; if the database has no rows, the API
-  // returns an error instead of rendering fake scoreboard entries.
-  const rows = (rowsResult.rows || []).map((row, index) => {
-    const score = toNum(row.total_impact_score)
+  const indoorDays = (userIndoorDaysResult.rows || []).map((r) => toIsoDate(r.day)).filter(Boolean)
+  let currentStreak = 0
+  let streakBroken = false
+
+  if (indoorDays.length > 0 && indoorDays[0] === todayIso) {
+    currentStreak = 1
+    for (let i = 1; i < indoorDays.length; i += 1) {
+      if (diffDays(indoorDays[i - 1], indoorDays[i]) === 1) {
+        currentStreak += 1
+      } else {
+        break
+      }
+    }
+  } else if (indoorDays.length > 0) {
+    streakBroken = true
+  }
+
+  let bestStreak = 0
+  let run = 0
+  for (let i = indoorDays.length - 1; i >= 0; i -= 1) {
+    if (i === indoorDays.length - 1) {
+      run = 1
+      bestStreak = 1
+      continue
+    }
+    if (diffDays(indoorDays[i + 1], indoorDays[i]) === 1) {
+      run += 1
+    } else {
+      run = 1
+    }
+    bestStreak = Math.max(bestStreak, run)
+  }
+
+  const userMonth = userMonthResult.rows?.[0] || {}
+  const userContainedMonth = toInt(userMonth.indoor_count, 0)
+  const userRoamingMonth = toInt(userMonth.roaming_count, 0)
+
+  const userPostcode = String(resolvedUser.postcode || '').trim()
+  const suburbMeta = suburbResult.rows?.[0] || {}
+
+  const leaderboardResult = await db.query(
+    `WITH monthly AS (
+       SELECT TRIM(u.postcode) AS postcode,
+              COUNT(*) FILTER (WHERE LOWER(TRIM(rl.status)) LIKE '%indoor%')::int AS total_contained_evenings,
+              COUNT(DISTINCT rl.user_id)::int AS active_guardian_count
+       FROM roaming_log rl
+       JOIN users u ON u.id = rl.user_id
+       WHERE rl.log_date::date >= $1::date
+         AND TRIM(COALESCE(u.postcode, '')) <> ''
+       GROUP BY TRIM(u.postcode)
+     ),
+     enriched AS (
+       SELECT TRIM(sd.postcode) AS postcode,
+              sd.suburb_name,
+              sd.lga_name,
+              COALESCE(m.total_contained_evenings, 0)::int AS total_contained_evenings,
+              COALESCE(m.active_guardian_count, 0)::int AS active_guardian_count,
+              CASE
+                WHEN COALESCE(m.active_guardian_count, 0) > 0
+                THEN (
+                  COALESCE(m.total_contained_evenings, 0)::numeric /
+                  (
+                    COALESCE(m.active_guardian_count, 0)::numeric *
+                    EXTRACT(DAY FROM (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month - 1 day'))::numeric
+                  )
+                )
+                ELSE 0
+              END AS containment_rate,
+              (COALESCE(m.total_contained_evenings, 0)::numeric * $2::numeric) AS encounters_prevented
+       FROM suburb_demographics sd
+       LEFT JOIN monthly m ON m.postcode = TRIM(sd.postcode)
+       WHERE sd.state = 'VIC'
+         AND TRIM(COALESCE(sd.postcode, '')) <> ''
+     ),
+     ranked AS (
+       SELECT e.*,
+              PERCENT_RANK() OVER (ORDER BY e.containment_rate DESC, e.postcode ASC) AS percentile_rank,
+              ROW_NUMBER() OVER (ORDER BY e.containment_rate DESC, e.postcode ASC) AS rank_position,
+              COUNT(*) OVER ()::int AS total_regions
+       FROM enriched e
+     )
+     SELECT *
+     FROM ranked
+     ORDER BY rank_position ASC`,
+    [monthStart, preyPerDay],
+  )
+
+  const allRankedRows = leaderboardResult.rows || []
+  const topTen = allRankedRows.slice(0, 10)
+  const userRow = allRankedRows.find((row) => String(row.postcode || '').trim() === userPostcode) || null
+
+  const ranking = [...topTen]
+  if (userRow && !topTen.some((r) => String(r.postcode || '').trim() === userPostcode)) {
+    ranking.push(userRow)
+  }
+
+  let rankingRows = ranking.map((row) => {
+    const ratePct = Number((toNum(row.containment_rate, 0) * 100).toFixed(2))
+    const percentileTop = Math.max(1, Math.round((1 - toNum(row.percentile_rank, 0)) * 100))
+    const isUserSuburb = String(row.postcode || '').trim() === userPostcode
     return {
-      rank: index + 1,
-      suburbName: String(row.suburb_name || '').trim() || String(row.postcode || '').trim(),
+      rank: toInt(row.rank_position),
+      suburbName: String(row.suburb_name || row.postcode || '').trim(),
       postcode: String(row.postcode || '').trim(),
       lgaName: String(row.lga_name || '').trim(),
-      population: toInt(row.population),
-      householdCount: toInt(row.household_count),
-      score,
-      risk: riskLevelForScore(score),
-      containmentGapPct: toNum(row.containment_gap_raw),
-      wildlifeRecords: toInt(row.wildlife_density_raw),
-      roamingCats: toInt(row.cat_density_raw),
-      threatenedSpecies: toInt(row.threatened_species_count),
-      topPercent: Math.max(1, Math.round(((index + 1) / Math.max(1, toInt(summary.total_regions, 1))) * 100)),
+      activeGuardianCount: toInt(row.active_guardian_count, 0),
+      hasLowSample: toInt(row.active_guardian_count, 0) < 3,
+      containedEvenings: toInt(row.total_contained_evenings, 0),
+      containmentRatePct: ratePct,
+      encountersPrevented: Number(toNum(row.encounters_prevented, 0).toFixed(2)),
+      topPercent: percentileTop,
+      isUserSuburb,
     }
   })
 
-  if (!rows.length) throw new Error('No Victorian suburb score rows found in database')
+  // Keep leaderboard strictly formula-based from guardian containment data only.
+
+  const communityBase = userRow ||
+    (
+      await db.query(
+        `WITH monthly AS (
+           SELECT TRIM(u.postcode) AS postcode,
+                  COUNT(*) FILTER (WHERE LOWER(TRIM(rl.status)) LIKE '%indoor%')::int AS total_contained_evenings,
+                  COUNT(DISTINCT rl.user_id)::int AS active_guardian_count
+           FROM roaming_log rl
+           JOIN users u ON u.id = rl.user_id
+           WHERE rl.log_date::date >= $1::date
+             AND TRIM(COALESCE(u.postcode, '')) <> ''
+           GROUP BY TRIM(u.postcode)
+         )
+         SELECT m.postcode,
+                sd.suburb_name,
+                sd.lga_name,
+                m.total_contained_evenings,
+                m.active_guardian_count
+         FROM monthly m
+         LEFT JOIN suburb_demographics sd ON TRIM(sd.postcode) = m.postcode
+         WHERE m.postcode = $2
+         LIMIT 1`,
+        [monthStart, userPostcode],
+      )
+    ).rows?.[0]
+
+  const communityContained = toInt(communityBase?.total_contained_evenings, 0)
+  const communityActive = toInt(communityBase?.active_guardian_count, 0)
+  const communityEncounter = Number((communityContained * preyPerDay).toFixed(2))
+  const userEncounter = Number((userContainedMonth * preyPerDay).toFixed(2))
+
+  const summaryResult = await db.query(
+    `SELECT COUNT(*)::int AS participating_regions,
+            COALESCE(SUM(total_contained_evenings), 0)::int AS total_contained_evenings,
+            COALESCE(SUM(active_guardian_count), 0)::int AS active_guardians
+     FROM (
+       SELECT TRIM(u.postcode) AS postcode,
+              COUNT(*) FILTER (WHERE LOWER(TRIM(rl.status)) LIKE '%indoor%')::int AS total_contained_evenings,
+              COUNT(DISTINCT rl.user_id)::int AS active_guardian_count
+       FROM roaming_log rl
+       JOIN users u ON u.id = rl.user_id
+       WHERE rl.log_date::date >= $1::date
+         AND TRIM(COALESCE(u.postcode, '')) <> ''
+       GROUP BY TRIM(u.postcode)
+     ) s`,
+    [monthStart],
+  )
+
+  const summary = summaryResult.rows?.[0] || {}
 
   return {
     scope: {
       label: 'Victoria',
-      source: 'suburb_scores + suburb_demographics',
+      source: 'roaming_log + users + suburb_demographics + cats_behaviour_stats',
     },
     summary: {
-      totalRegions: toInt(summary.total_regions),
-      averageScore: toNum(summary.average_score),
-      maxScore: toNum(summary.max_score),
-      threatenedRecords: toInt(wildlife.threatened_records),
-      threatenedSpecies: toInt(wildlife.threatened_species),
+      participatingRegions: toInt(summary.participating_regions, 0),
+      totalContainedEvenings: toInt(summary.total_contained_evenings, 0),
+      activeGuardians: toInt(summary.active_guardians, 0),
+      preyRatePerDay: preyPerDay,
     },
-    ranking: rows.slice(0, 6),
-    distribution: rows.slice(0, 6),
+    personal: {
+      userId: toInt(resolvedUser.id),
+      userName: String(resolvedUser.name || '').trim() || 'Cat owner',
+      catName: String(resolvedUser.cat_name || '').trim() || 'Cat',
+      currentStreak,
+      bestStreak,
+      containedThisMonth: userContainedMonth,
+      roamingThisMonth: userRoamingMonth,
+      encountersPrevented: Number((currentStreak * preyPerDay).toFixed(2)),
+      milestones: getMilestones(currentStreak),
+      streakBroken,
+      hasAnyIndoorLog: indoorDays.length > 0,
+      lastIndoorLogDate: indoorDays[0] || null,
+    },
+    guardian: {
+      suburbName: String(communityBase?.suburb_name || suburbMeta.suburb_name || userPostcode).trim(),
+      postcode: userPostcode,
+      lgaName: String(communityBase?.lga_name || suburbMeta.lga_name || '').trim(),
+      totalContainedEvenings: communityContained,
+      activeGuardianCount: communityActive,
+      encountersPrevented: communityEncounter,
+      userContributionEvenings: userContainedMonth,
+      userContributionEncounters: userEncounter,
+      isFirstGuardian: communityActive <= 1,
+      userTopPercent: userRow ? Math.max(1, Math.round((1 - toNum(userRow.percentile_rank, 0)) * 100)) : null,
+      userRankPosition: userRow ? toInt(userRow.rank_position) : null,
+      rankedRegionCount: userRow ? toInt(userRow.total_regions) : toInt(allRankedRows.length, 0),
+    },
+    ranking: rankingRows,
+    distribution: rankingRows,
     criteria: [
-      { label: 'Containment Gap', weightPct: 45 },
-      { label: 'Wildlife Density', weightPct: 35 },
-      { label: 'Roaming Cat Density', weightPct: 20 },
+      { label: 'Containment Rate', weightPct: 100 },
     ],
-    formula: {
-      note: 'All score values are read from pre-computed database rows in suburb_scores.',
+    leaderboardMeta: {
+      threshold: 3,
+      monthStart,
+      updatedNote: 'Rankings updated every Monday morning.',
     },
     updatedAt: new Date().toISOString(),
   }
 }
 
-// Handle API request and return aggregated Cat's Scoreboard response data.
 export default async function handler(req, res) {
   try {
-    const data = await getScoreboardData()
+    const userId = req?.query?.userId ? toInt(req.query.userId, null) : null
+    const postcode = req?.query?.postcode ? String(req.query.postcode).trim() : null
+    const data = await getScoreboardData({ userId, postcode })
     res.status(200).json(data)
   } catch (error) {
     res.status(500).json({ error: error?.message || 'Unable to load Cat Scoreboard.' })

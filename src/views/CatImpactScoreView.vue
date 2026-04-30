@@ -1,5 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import ProtectedLoginPanel from '../components/ProtectedLoginPanel.vue'
+import { isAuthenticated } from '../utils/auth'
 
 const postcodeInput = ref('')
 const selectedSuggestion = ref(null)
@@ -12,6 +14,7 @@ const formulaLoading = ref(false)
 const formulaError = ref('')
 const formulaData = ref(null)
 let lookupTimer = null
+const authed = ref(isAuthenticated())
 
 const normalizePostcode = (value) => String(value || '').match(/\d{4}/)?.[0] || ''
 const scoreDisplay = computed(() => Math.round(Number(data.value?.score?.total || 0)))
@@ -162,6 +165,15 @@ onMounted(fetchImpactFormula)
         </p>
       </header>
 
+      <ProtectedLoginPanel
+        v-if="!authed"
+        title="Login to Access Impact Score"
+        subtitle="Please sign in to view and calculate Impact Score."
+        @success="authed = true"
+      />
+
+      <template v-else>
+
       <form class="calculator-card cw-card" aria-label="Impact score postcode search" @submit.prevent="submitPostcode">
         <label class="search-field">
           <span aria-hidden="true">⌖</span>
@@ -244,6 +256,7 @@ onMounted(fetchImpactFormula)
           </div>
         </section>
       </section>
+      </template>
     </div>
   </main>
 </template>
