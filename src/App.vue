@@ -213,6 +213,7 @@ onUnmounted(() => {
   gap: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  margin-right: 80px;
 }
 
 .nav-pill {
@@ -340,6 +341,7 @@ onUnmounted(() => {
   .top-nav {
     width: 100%;
     justify-content: flex-start;
+    margin-right: 0;
   }
 }
 
