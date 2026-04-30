@@ -5,6 +5,8 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024
 const CAT_TRACKER_BIRD_PREY_STAT =
   'Domestic cats were observed with bird prey in 59.1% of recorded prey events.'
 
+// File/camera refs are separated because "Upload File" uses a hidden file input,
+// while "Take Photo" opens a live browser camera stream and captures a frame.
 const fileInput = ref(null)
 const cameraVideo = ref(null)
 const photoFile = ref(null)
@@ -12,33 +14,53 @@ const previewUrl = ref('')
 const cameraOpen = ref(false)
 const cameraError = ref('')
 const cameraStream = ref(null)
+
+// Location is required by the Epic 3 API and by our own database insight calls.
+// The user can type a suburb name or postcode; /api/suburbs resolves it to the
+// canonical Victorian postcode used by species_cache/suburb_demographics.
 const postcodeInput = ref('')
 const selectedSuburb = ref(null)
 const suburbSuggestions = ref([])
 const suburbLoading = ref(false)
+
+// These refs drive the manual confirmation flow used when AI confidence is in
+// the "uncertain" band. Options are loaded from the real species_cache table.
 const speciesOptions = ref([])
 const speciesSearch = ref('')
 const speciesLoading = ref(false)
 const selectedSpeciesKey = ref('')
 const activePostcode = ref('')
+
+// Page state is intentionally kept explicit so the template can show one clear
+// phase at a time: idle upload, analyzing spinner, or identification results.
 const phase = ref('idle')
 const errorMessage = ref('')
 const identifyPayload = ref(null)
 const confirmedSpecies = ref(null)
 const confirmedInsight = ref(null)
 const editableSpeciesName = ref('')
+
+// Save status reflects the automatic "confirmed sighting" database insert.
+// It lets the UI tell the user whether the blue community map pin was saved.
 const saveStatus = ref('')
 const saveError = ref('')
 const savedSighting = ref(null)
+
+// If a user uploads a file before entering a postcode, we keep the selected
+// photo and automatically analyze it as soon as a valid postcode is provided.
 const pendingAutoAnalyze = ref(false)
 let suburbTimer = null
 let speciesTimer = null
 
+// The Epic 3 API returns arrays, but the UI mostly focuses on the top match.
+// possibleMatches is still shown on Low Confidence screens for reference.
 const topPrediction = computed(() => identifyPayload.value?.predictions?.[0] || null)
 const possibleMatches = computed(() => (identifyPayload.value?.predictions || []).slice(0, 3))
 const hasPhoto = computed(() => Boolean(photoFile.value && previewUrl.value))
 const hasResult = computed(() => Boolean(identifyPayload.value))
 
+// The backend can return confidence either as 0.27 or 27. This helper normalizes
+// both forms to 0-1 so the tier logic stays stable.
 const normalizeConfidence = (value) => {
   const n = Number(value)
   if (!Number.isFinite(n)) return 0
@@ -48,6 +70,11 @@ const normalizeConfidence = (value) => {
 
 const confidenceValue = computed(() => normalizeConfidence(topPrediction.value?.confidence))
 const confidencePct = computed(() => Math.round(confidenceValue.value * 100))
+
+// AC3.1.1 defines the three display tiers:
+// 60%+ = pre-filled green AI identified result;
+// 30-59% = uncertain manual confirmation;
+// below 30% = low confidence guidance screen.
 const resultTier = computed(() => {
   if (!topPrediction.value) return 'low'
   if (confidenceValue.value >= 0.6) return 'high'
@@ -78,6 +105,8 @@ const selectedSpecies = computed(
   () => speciesOptions.value.find((item) => item.id === selectedSpeciesKey.value) || null,
 )
 
+// The displayed species may come from the AI result or from the user's manual
+// dropdown confirmation. This computed value gives the template one source.
 const speciesForDisplay = computed(() => {
   if (confirmedSpecies.value) return confirmedSpecies.value
   if (!topPrediction.value) return null
@@ -89,6 +118,7 @@ const speciesForDisplay = computed(() => {
 
 const displayInsight = computed(() => confirmedInsight.value)
 
+// FFG conservation statuses become green/yellow/red badges in the result cards.
 const statusToneClass = computed(() => {
   const text = String(displayInsight.value?.conservationStatus || '').toLowerCase()
   if (text.includes('critical') || text.includes('endangered')) return 'status-red'
@@ -106,6 +136,8 @@ const showPredationWarning = computed(() => {
   )
 })
 
+// The suggestion label keeps postcode and suburb together for clarity, while
+// avoiding duplicated labels such as "3029 3029" from imperfect source rows.
 const suburbLabel = (item) => {
   const postcode = String(item?.postcode || '').trim()
   const name = String(item?.name || '').trim()
@@ -122,6 +154,8 @@ const formatNumber = (value) => {
 
 const formatConfidence = (value) => `${Math.round(normalizeConfidence(value) * 100)}%`
 
+// Epic 3 and our local insight API use slightly different JSON key styles.
+// This adapter gives the Vue template one consistent camelCase shape.
 const normalizeInsight = (raw, fallbackSpecies = null) => {
   if (!raw) return null
   const prediction = raw.prediction || {}
@@ -150,6 +184,8 @@ const normalizeInsight = (raw, fallbackSpecies = null) => {
 }
 
 const clearResult = () => {
+  // Reset result state so a new upload cannot accidentally display old species
+  // insight, confidence, or saved-sighting messages.
   identifyPayload.value = null
   confirmedSpecies.value = null
   confirmedInsight.value = null
@@ -161,6 +197,9 @@ const clearResult = () => {
 }
 
 const openUpload = () => fileInput.value?.click()
+
+// Stop every camera track when closing the camera panel. Without this, the
+// browser can keep the phone/laptop camera active in the background.
 const stopCamera = () => {
   const stream = cameraStream.value
   if (stream) {
@@ -171,6 +210,8 @@ const stopCamera = () => {
   cameraOpen.value = false
 }
 
+// Open a live camera preview. This is different from file upload: the user sees
+// a real-time video stream and then captures one frame into an image file.
 const openCamera = async () => {
   errorMessage.value = ''
   cameraError.value = ''
@@ -183,6 +224,8 @@ const openCamera = async () => {
 
   try {
     stopCamera()
+    // Prefer the back/environment camera on mobile devices, while still letting
+    // desktop browsers choose any available camera.
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' } },
       audio: false,
@@ -200,6 +243,8 @@ const openCamera = async () => {
   }
 }
 
+// Shared entry point for uploaded files and camera-captured files. Once a valid
+// image is available, the page previews it and immediately starts analysis.
 const setPhotoFile = async (file) => {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
   photoFile.value = file
@@ -210,6 +255,8 @@ const setPhotoFile = async (file) => {
   await analyzePhoto()
 }
 
+// Convert the current video frame into a JPEG File. The result is sent through
+// exactly the same FormData flow as a normal "Upload File" image.
 const captureCameraPhoto = async () => {
   const video = cameraVideo.value
   if (!video?.videoWidth || !video?.videoHeight) {
@@ -226,6 +273,9 @@ const captureCameraPhoto = async () => {
     return
   }
   context.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+  // JPEG keeps the captured image reasonably small for the Epic 3 backend size
+  // limit, while preserving enough detail for species identification.
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
   if (!blob) {
     cameraError.value = 'Unable to capture the photo.'
@@ -237,6 +287,8 @@ const captureCameraPhoto = async () => {
   await setPhotoFile(file)
 }
 
+// Validate uploaded files before sending them to the API. This avoids wasting a
+// backend request on unsupported formats or files over the accepted size.
 const handleFileChange = async (event) => {
   const file = event.target.files?.[0]
   event.target.value = ''
@@ -255,6 +307,8 @@ const handleFileChange = async (event) => {
   await setPhotoFile(file)
 }
 
+// Return to the initial state, release camera resources, and revoke the preview
+// object URL to avoid memory leaks after repeated uploads.
 const resetPhoto = () => {
   stopCamera()
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
@@ -267,6 +321,8 @@ const resetPhoto = () => {
 }
 
 const loadSuburbSuggestions = async () => {
+  // Suggestions are database-backed. A short input guard keeps the API quiet
+  // until the user has typed enough characters to search meaningfully.
   const q = postcodeInput.value.trim()
   if (q.length < 2) {
     suburbSuggestions.value = []
@@ -291,12 +347,17 @@ const chooseSuburb = (item) => {
   activePostcode.value = item.postcode || ''
   suburbSuggestions.value = []
   errorMessage.value = ''
+
+  // If the image was already chosen before a postcode was available, selecting
+  // a suburb resumes the pending identification automatically.
   if (pendingAutoAnalyze.value && photoFile.value && phase.value === 'idle') {
     pendingAutoAnalyze.value = false
     void analyzePhoto()
   }
 }
 
+// The Epic 3 endpoint requires a 4-digit postcode. This helper accepts either a
+// direct postcode typed by the user or a suburb name resolved through /api/suburbs.
 const resolvePostcode = async () => {
   if (selectedSuburb.value?.postcode && postcodeInput.value === suburbLabel(selectedSuburb.value)) {
     activePostcode.value = selectedSuburb.value.postcode
@@ -323,6 +384,8 @@ const resolvePostcode = async () => {
   return match.postcode
 }
 
+// Load the manual confirmation dropdown from species_cache. This means the
+// dropdown options are real Victorian species records from the database.
 const loadSpeciesOptions = async () => {
   speciesLoading.value = true
   try {
@@ -338,6 +401,8 @@ const loadSpeciesOptions = async () => {
   }
 }
 
+// Fetch the confirmed species' conservation status and local sighting history.
+// This endpoint performs database lookups, including the 5km local count.
 const loadInsightForSpecies = async (species) => {
   const postcode = activePostcode.value || (await resolvePostcode())
   const params = new URLSearchParams({
@@ -351,6 +416,8 @@ const loadInsightForSpecies = async (species) => {
   return normalizeInsight(payload, species)
 }
 
+// Save a confirmed sighting into the backend table so it can be represented as
+// a community-map blue pin. The source records whether it came from AI or manual confirmation.
 const saveConfirmedSighting = async (species, insight, source) => {
   if (!species?.commonName || !species?.scientificName || !activePostcode.value) return
   saveStatus.value = 'saving'
@@ -383,6 +450,11 @@ const saveConfirmedSighting = async (species, insight, source) => {
 }
 
 const analyzePhoto = async () => {
+  // Full identification flow:
+  // 1. Require an image.
+  // 2. Resolve the suburb/postcode to the postcode required by Epic 3.
+  // 3. Send multipart/form-data to /api/epic3-identify.
+  // 4. Interpret the returned confidence tier and render the correct result UI.
   errorMessage.value = ''
   clearResult()
 
@@ -403,9 +475,14 @@ const analyzePhoto = async () => {
 
   phase.value = 'analyzing'
   const controller = new AbortController()
+
+  // The acceptance criteria require a response within seconds. We abort at 5s
+  // and show a clear retry message rather than leaving the spinner forever.
   const timeout = window.setTimeout(() => controller.abort(), 5000)
 
   try {
+    // Field names match EPIC3_FRONTEND_API_GUIDE.md:
+    // image = uploaded/captured photo, postcode = local context, top_k = matches.
     const formData = new FormData()
     formData.append('image', photoFile.value)
     formData.append('postcode', postcode)
@@ -426,6 +503,8 @@ const analyzePhoto = async () => {
     if (!prediction) return
 
     if (normalizeConfidence(prediction.confidence) >= 0.6) {
+      // High-confidence results are auto-confirmed and saved immediately. The
+      // editable text field still lets the user correct the common name if needed.
       const species = {
         commonName: prediction.common_name || '',
         scientificName: prediction.scientific_name || '',
@@ -433,6 +512,8 @@ const analyzePhoto = async () => {
       confirmedSpecies.value = species
       editableSpeciesName.value = species.commonName
       try {
+        // Prefer our own 5km database insight endpoint because it matches the
+        // page wording. Fall back to Epic 3's bundled insight if that lookup fails.
         confirmedInsight.value = await loadInsightForSpecies(species)
       } catch {
         confirmedInsight.value = normalizeInsight(payload?.species_insights?.[0], species)
@@ -451,6 +532,8 @@ const analyzePhoto = async () => {
   }
 }
 
+// For uncertain results, the user manually chooses a species from the database
+// dropdown. Confirmation then follows the same insight + save path as AI results.
 const confirmManualSpecies = async () => {
   const selected = selectedSpecies.value
   if (!selected) {
@@ -478,6 +561,8 @@ const confirmManualSpecies = async () => {
 }
 
 watch(postcodeInput, () => {
+  // Changing the input invalidates the selected suburb unless the text still
+  // exactly matches that selected row.
   if (!selectedSuburb.value || postcodeInput.value !== suburbLabel(selectedSuburb.value)) {
     selectedSuburb.value = null
     activePostcode.value = ''
@@ -486,6 +571,8 @@ watch(postcodeInput, () => {
   if (suburbTimer) window.clearTimeout(suburbTimer)
   suburbTimer = window.setTimeout(loadSuburbSuggestions, 180)
 
+  // If analysis is waiting only for a postcode, resume automatically once the
+  // typed value contains a valid 4-digit postcode.
   if (
     pendingAutoAnalyze.value &&
     photoFile.value &&
@@ -498,6 +585,7 @@ watch(postcodeInput, () => {
 })
 
 watch(speciesSearch, () => {
+  // Debounce species dropdown searches so typing does not spam the database API.
   if (speciesTimer) window.clearTimeout(speciesTimer)
   speciesTimer = window.setTimeout(loadSpeciesOptions, 180)
 })
@@ -515,6 +603,7 @@ onUnmounted(() => {
 <template>
   <main class="identifier-page">
     <div class="identifier-container">
+      <!-- Hero: compact green heading that matches the rest of the CatWatch visual system. -->
       <header class="identifier-hero">
         <span class="hero-camera" aria-hidden="true">
           <svg viewBox="0 0 24 24">
@@ -526,6 +615,7 @@ onUnmounted(() => {
         <p>Upload a photo of wildlife and get instant AI-powered species identification</p>
       </header>
 
+      <!-- API note: tells users this page is powered by the external Epic 3/iNaturalist model. -->
       <section class="api-note">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="9" />
@@ -541,6 +631,7 @@ onUnmounted(() => {
         </div>
       </section>
 
+      <!-- Location input: needed for postcode-specific API calls and 5km local sighting counts. -->
       <section class="location-card">
         <label class="location-field">
           <span>Suburb or postcode</span>
@@ -559,6 +650,7 @@ onUnmounted(() => {
         <small v-if="suburbLoading">Searching database suburbs...</small>
       </section>
 
+      <!-- Camera mode: live preview from getUserMedia, then one captured frame is analyzed. -->
       <section v-if="cameraOpen" class="camera-card">
         <header>
           <h2>Take Photo</h2>
@@ -577,6 +669,7 @@ onUnmounted(() => {
         </button>
       </section>
 
+      <!-- Upload state: first screen before an image exists. Upload File triggers immediate analysis. -->
       <section v-else-if="!hasPhoto" class="upload-drop">
         <div class="upload-icons" aria-hidden="true">
           <button type="button" class="icon-button camera-icon" @click="openCamera">
@@ -615,6 +708,7 @@ onUnmounted(() => {
         <small>Supported formats: JPG, PNG, WEBP • Max size: 10MB</small>
       </section>
 
+      <!-- Preview state: keeps the chosen/captured photo visible while analyzing and after results. -->
       <section v-else class="uploaded-card">
         <header>
           <h2>Uploaded Image</h2>
@@ -635,12 +729,14 @@ onUnmounted(() => {
 
       <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
+      <!-- Loading state: shown while the 5-second Epic 3 request is in flight. -->
       <section v-if="phase === 'analyzing'" class="analyzing-card">
         <div class="spinner" aria-hidden="true" />
         <h2>Analyzing Image...</h2>
         <p>AI is identifying species • Usually takes 2-5 seconds</p>
       </section>
 
+      <!-- Result state: switches between low, uncertain, and high confidence layouts. -->
       <section v-if="hasResult" class="results-card">
         <header>
           <h2>Identification Results</h2>
@@ -666,6 +762,7 @@ onUnmounted(() => {
 
         <h3>Species Identification</h3>
 
+        <!-- Low confidence: below 30%, show retake guidance and optional top matches. -->
         <section v-if="resultTier === 'low'" class="low-panel">
           <div class="low-heading">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -694,6 +791,7 @@ onUnmounted(() => {
         </section>
 
         <template v-else>
+          <!-- Uncertain confidence: 30-59%, user must confirm from database species dropdown. -->
           <section v-if="resultTier === 'uncertain' && !confirmedSpecies" class="confirm-panel">
             <p>
               AI suggestion:
@@ -717,6 +815,7 @@ onUnmounted(() => {
             <button type="button" @click="confirmManualSpecies">Confirm Species</button>
           </section>
 
+          <!-- High confidence or manually confirmed species: editable species name field. -->
           <label v-if="confirmedSpecies" class="species-field" :class="resultTone.className">
             <input v-model="editableSpeciesName" aria-label="Editable species name" />
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -724,6 +823,7 @@ onUnmounted(() => {
             </svg>
           </label>
 
+          <!-- Database insight cards: scientific name and FFG conservation status. -->
           <section v-if="displayInsight" class="detail-grid">
             <article>
               <p>Scientific Name</p>
@@ -745,6 +845,7 @@ onUnmounted(() => {
             </article>
           </section>
 
+          <!-- Local sighting history: uses database count within 5km plus LGA/Victoria totals. -->
           <section v-if="displayInsight" class="local-data">
             <h4>
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -768,6 +869,7 @@ onUnmounted(() => {
             </p>
           </section>
 
+          <!-- Cat predation warning appears for likely birds/reptiles, matching AC3.2. -->
           <section v-if="displayInsight && showPredationWarning" class="cat-risk">
             <h4>
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -784,6 +886,7 @@ onUnmounted(() => {
             </p>
           </section>
 
+          <!-- Save status: confirms the new species_sightings row used by the community pin. -->
           <section v-if="saveStatus" class="community-pin" :class="saveStatus">
             <div class="pin-map" aria-hidden="true">
               <span />
@@ -813,15 +916,17 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* Page shell: green/teal theme aligned with the other CatWatch pages. */
 .identifier-page {
   min-height: calc(100dvh - 101px);
   background:
-    radial-gradient(circle at 50% -10%, rgba(224, 236, 255, 0.92), transparent 34rem),
-    linear-gradient(180deg, #f6f8ff 0%, #fff9ff 100%);
+    radial-gradient(circle at 50% -10%, rgba(220, 252, 231, 0.9), transparent 34rem),
+    linear-gradient(180deg, #f7fbf6 0%, #ffffff 100%);
   color: #0f172a;
   padding: 34px 16px 56px;
 }
 
+/* Hero and information banner styles. */
 .identifier-container {
   width: min(100%, 1180px);
   margin: 0 auto;
@@ -837,7 +942,7 @@ onUnmounted(() => {
   height: 58px;
   place-items: center;
   border-radius: 50%;
-  background: linear-gradient(135deg, #8ea4ff, #b272ff);
+  background: linear-gradient(135deg, #10b981, #0d9488);
   color: #ffffff;
 }
 
@@ -861,7 +966,7 @@ svg {
   font-size: clamp(2rem, 4vw, 3.2rem);
   font-weight: 900;
   line-height: 1.05;
-  background: linear-gradient(90deg, #315cff, #9519ff);
+  background: linear-gradient(90deg, #059669, #0d9488);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -880,18 +985,18 @@ svg {
   display: flex;
   gap: 18px;
   align-items: flex-start;
-  border: 3px solid #ead2ff;
+  border: 3px solid #bbf7d0;
   border-radius: 20px;
-  background: linear-gradient(90deg, rgba(239, 247, 255, 0.82), rgba(255, 247, 255, 0.9));
+  background: linear-gradient(90deg, rgba(236, 253, 245, 0.86), rgba(255, 255, 255, 0.92));
   padding: 18px 22px;
-  color: #6816b8;
+  color: #047857;
 }
 
 .api-note > svg {
   flex: 0 0 auto;
   width: 24px;
   height: 24px;
-  color: #8c19ff;
+  color: #059669;
 }
 
 .api-note h2 {
@@ -902,15 +1007,16 @@ svg {
 
 .api-note p {
   margin: 8px 0 0;
-  color: #6d20c6;
+  color: #047857;
   font-size: 0.98rem;
   line-height: 1.45;
 }
 
+/* Suburb/postcode lookup card and autocomplete dropdown. */
 .location-card {
   position: relative;
   margin-bottom: 22px;
-  border: 2px solid #ead2ff;
+  border: 2px solid #bbf7d0;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.86);
   padding: 16px;
@@ -934,7 +1040,7 @@ svg {
 .species-field input {
   width: 100%;
   min-height: 48px;
-  border: 2px solid #e9d5ff;
+  border: 2px solid #bbf7d0;
   border-radius: 14px;
   background: #ffffff;
   color: #111827;
@@ -949,8 +1055,8 @@ svg {
 .confirm-panel input:focus,
 .confirm-panel select:focus,
 .species-field input:focus {
-  border-color: #9b1cff;
-  box-shadow: 0 0 0 4px rgba(155, 28, 255, 0.12);
+  border-color: #059669;
+  box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.12);
 }
 
 .suggestion-list {
@@ -988,13 +1094,14 @@ svg {
   font-weight: 700;
 }
 
+/* Upload, camera, preview, and analyzing states. */
 .upload-drop {
   min-height: 390px;
   display: grid;
   place-items: center;
   justify-items: center;
   text-align: center;
-  border: 5px dashed #ead2ff;
+  border: 5px dashed #bbf7d0;
   border-radius: 28px;
   background: #ffffff;
   padding: 38px 20px;
@@ -1022,13 +1129,13 @@ svg {
 }
 
 .camera-icon {
-  background: #d8e9ff;
-  color: #2563eb;
+  background: #dcfce7;
+  color: #059669;
 }
 
 .upload-icon {
-  background: #f1ddff;
-  color: #9519ff;
+  background: #d1fae5;
+  color: #0d9488;
 }
 
 .upload-drop h2 {
@@ -1077,13 +1184,13 @@ svg {
 .take-button,
 .identify-button {
   color: #ffffff;
-  background: linear-gradient(90deg, #2f5eff, #9b16ff);
+  background: linear-gradient(90deg, #059669, #0d9488);
 }
 
 .file-button {
-  color: #9b16ff;
+  color: #047857;
   background: #ffffff;
-  border-color: #ead2ff;
+  border-color: #bbf7d0;
 }
 
 .take-button svg,
@@ -1244,15 +1351,15 @@ svg {
   min-height: 240px;
   place-items: center;
   justify-items: center;
-  border-color: #ead2ff;
+  border-color: #bbf7d0;
   padding: 44px 24px;
 }
 
 .spinner {
   width: 78px;
   height: 78px;
-  border: 8px solid #f1ddff;
-  border-top-color: #9519ff;
+  border: 8px solid #dcfce7;
+  border-top-color: #059669;
   border-radius: 50%;
   animation: spin 850ms linear infinite;
 }
@@ -1277,6 +1384,8 @@ svg {
   }
 }
 
+/* Result panels: confidence badge, low-confidence guidance, confirmation form,
+   database insight cards, predation warning, and community pin status. */
 .results-card {
   margin-top: 28px;
   padding: 30px;

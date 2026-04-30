@@ -12,6 +12,8 @@ const DEFAULT_DB_CONFIG = {
 
 let pool = null
 
+// Shared connection pool. All insight numbers shown on the frontend come from
+// PostgreSQL tables, not hardcoded sample data.
 const getPool = () => {
   if (pool) return pool
   const hasUrl = Boolean(process.env.DATABASE_URL)
@@ -48,6 +50,8 @@ const isoOrNull = (value) => {
   return Number.isNaN(d.getTime()) ? null : d.toISOString()
 }
 
+// Look up the user's selected Victorian postcode. The centroid is used as the
+// center point for the 5km local sighting radius.
 const getLocation = async (db, postcode) => {
   const result = await db.query(
     `SELECT TRIM(postcode) AS postcode,
@@ -66,6 +70,8 @@ const getLocation = async (db, postcode) => {
   return result.rows?.[0] || null
 }
 
+// Find the species row in species_cache. Scientific name is preferred because
+// common names can vary, but common name is accepted as a fallback.
 const getSpeciesMatch = async (db, scientificName, commonName) => {
   const result = await db.query(
     `SELECT
@@ -132,8 +138,15 @@ export default async function handler(req, res) {
     const homeLat = toNumOrNull(location.centroid_lat)
     const homeLng = toNumOrNull(location.centroid_lng)
 
+    // Run independent aggregation queries in parallel:
+    // - localResult: observations within 5km of the postcode centroid.
+    // - lgaResult: observations across the selected LGA.
+    // - victoriaResult: all cached Victorian observations for the species.
+    // - pinsResult: local coordinates used to describe community-map pins.
     const [localResult, lgaResult, victoriaResult, pinsResult] = await Promise.all([
       db.query(
+        // PostGIS ST_DWithin calculates the 5km radius on geography coordinates,
+        // which is more accurate than comparing raw lat/lng degrees.
         `WITH home AS (
            SELECT ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography AS geom
          )
@@ -150,6 +163,8 @@ export default async function handler(req, res) {
         [homeLng, homeLat, speciesKey],
       ),
       db.query(
+        // LGA count joins species_cache postcodes to suburb_demographics so the
+        // result follows the selected postcode's local government area.
         `WITH lga_postcodes AS (
            SELECT DISTINCT TRIM(postcode) AS postcode
            FROM suburb_demographics
@@ -163,12 +178,15 @@ export default async function handler(req, res) {
         [lgaName, speciesKey],
       ),
       db.query(
+        // Victoria-wide total is a simple species count across all cached rows.
         `SELECT COUNT(*)::int AS count, MAX(cached_at) AS latest_cached_at
          FROM species_cache
          WHERE LOWER(TRIM(scientific_name)) = $1`,
         [speciesKey],
       ),
       db.query(
+        // Local pins are grouped by coordinate so repeated observations at the
+        // same point become one marker with a count.
         `WITH home AS (
            SELECT ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography AS geom
          )

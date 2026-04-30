@@ -16,6 +16,9 @@ import sightingReportsHandler from './api/sighting-reports.js'
 
 // Adapt function-style handler into Vite middleware.
 const createApiMiddleware = (handler) => async (req, res) => {
+  // Vercel-style API handlers expect req.query and res.status().json().
+  // Vite middleware receives raw Node req/res, so this adapter gives local dev
+  // the same interface as deployment without duplicating API code.
   const url = new URL(req.url || '/', 'http://localhost')
   const query = Object.fromEntries(url.searchParams.entries())
   const reqLike = Object.assign(req, { query })
@@ -48,12 +51,19 @@ export default defineConfig({
     {
       name: 'local-api-routes',
       configureServer(server) {
+        // Register local API routes so the Vue app can call /api/... during
+        // development. Production deployment uses the same handler files.
         server.middlewares.use('/api/catwatch', createApiMiddleware(catwatchHandler))
         server.middlewares.use('/api/suburbs', createApiMiddleware(suburbsHandler))
         server.middlewares.use('/api/cat-scoreboard', createApiMiddleware(catScoreboardHandler))
         server.middlewares.use('/api/cat-impact-score', createApiMiddleware(catImpactScoreHandler))
         server.middlewares.use('/api/impact-formula', createApiMiddleware(impactFormulaHandler))
         server.middlewares.use('/api/mission-stats', createApiMiddleware(missionStatsHandler))
+        // Epic 3 feature endpoints:
+        // - epic3-identify proxies the remote computer vision service.
+        // - native-species fills the manual confirmation dropdown.
+        // - species-insights returns conservation/local sighting details.
+        // - sighting-reports saves confirmed sightings for community map pins.
         server.middlewares.use('/api/epic3-identify', createApiMiddleware(epic3IdentifyHandler))
         server.middlewares.use('/api/native-species', createApiMiddleware(nativeSpeciesHandler))
         server.middlewares.use('/api/species-insights', createApiMiddleware(speciesInsightsHandler))

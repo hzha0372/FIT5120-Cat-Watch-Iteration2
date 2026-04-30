@@ -28,6 +28,8 @@ const routes = [
   },
   {
     path: '/ai-photo-identifier',
+    // Alias keeps the user-story language ("Sighting Reporter") available while
+    // the visible navigation uses the Figma label "AI Photo Identifier".
     alias: ['/sighting-reporter'],
     component: AiPhotoIdentifierView,
   },

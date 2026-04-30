@@ -7,6 +7,9 @@ const logoMissing = ref(false)
 const route = useRoute()
 const exploreOpen = ref(false)
 
+// All non-home pages live under the Explore dropdown. Each item owns its own
+// route-matching function so legacy aliases (for example /dashboard) still
+// highlight the correct active menu row.
 const exploreItems = [
   {
     label: 'Risk Map',
@@ -41,6 +44,8 @@ const exploreItems = [
 const exploreActive = computed(() => exploreItems.some((item) => item.match(route.path)))
 const isExploreItemActive = (item) => item.match(route.path)
 
+// Close the dropdown after navigation so keyboard/click users do not see an
+// outdated menu floating over the newly loaded page.
 watch(
   () => route.fullPath,
   () => {
@@ -76,6 +81,8 @@ watch(
             @mouseenter="exploreOpen = true"
             @mouseleave="exploreOpen = false"
           >
+            <!-- The button supports both hover and click. aria-expanded tells
+                 screen readers whether the menu is currently open. -->
             <button
               class="nav-pill explore-trigger"
               type="button"
@@ -206,6 +213,8 @@ watch(
   position: relative;
 }
 
+/* Invisible hover bridge between the pill and dropdown. Without this, the menu
+   can close while the mouse crosses the small vertical gap. */
 .explore-nav::after {
   position: absolute;
   top: 100%;
