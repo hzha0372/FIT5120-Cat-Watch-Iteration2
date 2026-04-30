@@ -1,15 +1,16 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { AUTH_CHANGED_EVENT, isAuthenticated, logout } from './utils/auth'
 
 // Track logo loading so the header remains clean if the image asset is unavailable.
 const logoMissing = ref(false)
 const route = useRoute()
+const router = useRouter()
 const exploreOpen = ref(false)
+const authRevision = ref(0)
 
-// All non-home pages live under the Explore dropdown. Each item owns its own
-// route-matching function so legacy aliases (for example /dashboard) still
-// highlight the correct active menu row.
+// Define Explore dropdown links and active route matching.
 const exploreItems = [
   {
     label: 'Risk Map',
@@ -30,9 +31,9 @@ const exploreItems = [
       path.startsWith('/dashboard'),
   },
   {
-    label: 'AI Photo Identifier',
-    to: '/ai-photo-identifier',
-    match: (path) => path.startsWith('/ai-photo-identifier') || path.startsWith('/sighting-reporter'),
+    label: 'Photo Identifier',
+    to: '/photo-identifier',
+    match: (path) => path.startsWith('/photo-identifier') || path.startsWith('/sighting-reporter'),
   },
   {
     label: 'About Us',
@@ -43,15 +44,43 @@ const exploreItems = [
 
 const exploreActive = computed(() => exploreItems.some((item) => item.match(route.path)))
 const isExploreItemActive = (item) => item.match(route.path)
+const authed = computed(() => {
+  authRevision.value
+  return isAuthenticated()
+})
 
-// Close the dropdown after navigation so keyboard/click users do not see an
-// outdated menu floating over the newly loaded page.
+const refreshAuthState = () => {
+  authRevision.value += 1
+}
+
+const handleLogout = async () => {
+  logout()
+  if (route.meta.requiresAuth) {
+    await router.push({
+      path: '/login',
+      query: { redirect: route.fullPath },
+    })
+  }
+}
+
+// Close the dropdown after navigation.
 watch(
   () => route.fullPath,
   () => {
     exploreOpen.value = false
+    refreshAuthState()
   },
 )
+
+onMounted(() => {
+  window.addEventListener(AUTH_CHANGED_EVENT, refreshAuthState)
+  window.addEventListener('storage', refreshAuthState)
+})
+
+onUnmounted(() => {
+  window.removeEventListener(AUTH_CHANGED_EVENT, refreshAuthState)
+  window.removeEventListener('storage', refreshAuthState)
+})
 </script>
 
 <template>
@@ -81,8 +110,7 @@ watch(
             @mouseenter="exploreOpen = true"
             @mouseleave="exploreOpen = false"
           >
-            <!-- The button supports both hover and click. aria-expanded tells
-                 screen readers whether the menu is currently open. -->
+            <!-- The button supports both hover and click. -->
             <button
               class="nav-pill explore-trigger"
               type="button"
@@ -103,11 +131,18 @@ watch(
                 :class="{ active: isExploreItemActive(item) }"
                 :to="item.to"
                 role="menuitem"
+                @click="exploreOpen = false"
               >
                 {{ item.label }}
               </RouterLink>
             </div>
           </div>
+          <button v-if="authed" type="button" class="nav-pill login-pill" @click="handleLogout">
+            Logout
+          </button>
+          <RouterLink v-else to="/login" class="nav-pill login-pill" :class="{ active: route.path === '/login' }">
+            Login
+          </RouterLink>
         </nav>
       </div>
     </header>
@@ -120,6 +155,7 @@ watch(
 .app-shell {
   min-height: 100dvh;
   background: #f1f3f0;
+  overflow-x: clip;
 }
 
 .app-header {
@@ -213,8 +249,7 @@ watch(
   position: relative;
 }
 
-/* Invisible hover bridge between the pill and dropdown. Without this, the menu
-   can close while the mouse crosses the small vertical gap. */
+/* Invisible hover bridge between the pill and dropdown. */
 .explore-nav::after {
   position: absolute;
   top: 100%;
@@ -271,8 +306,7 @@ watch(
     transform 160ms ease;
 }
 
-.explore-nav.open .explore-menu,
-.explore-nav:focus-within .explore-menu {
+.explore-nav.open .explore-menu {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
@@ -285,7 +319,8 @@ watch(
   font-size: 1.18rem;
   font-weight: 700;
   line-height: 1.2;
-  padding: 18px 42px;
+  padding: 18px 22px;
+  text-align: left;
   white-space: nowrap;
 }
 

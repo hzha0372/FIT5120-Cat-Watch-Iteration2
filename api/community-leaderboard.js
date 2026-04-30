@@ -22,6 +22,7 @@ const toNum = (v, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback
 }
 
+// Reuse one PostgreSQL connection pool.
 const getPool = () => {
   if (pool) return pool
   const hasUrl = Boolean(process.env.DATABASE_URL)
@@ -48,6 +49,7 @@ const monthStartUtc = () => {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10)
 }
 
+// Resolve the user row used to highlight "you live here".
 async function loadResolvedUser(db, userId, postcode) {
   if (userId || postcode) {
     const r = await db.query(
@@ -71,6 +73,7 @@ async function loadResolvedUser(db, userId, postcode) {
   return r.rows?.[0] || null
 }
 
+// Build the community leaderboard from database rows.
 async function getLeaderboardData({ userId = null, postcode = null } = {}) {
   const db = getPool()
   const monthStart = monthStartUtc()
@@ -87,6 +90,7 @@ async function getLeaderboardData({ userId = null, postcode = null } = {}) {
   let rows = []
 
   if (hasCommunityTable.rows?.[0]?.ok) {
+    // Prefer precomputed community stats when the table exists.
     const r = await db.query(
       `WITH base AS (
          SELECT TRIM(sd.postcode) AS postcode,
@@ -126,6 +130,7 @@ async function getLeaderboardData({ userId = null, postcode = null } = {}) {
     )
     rows = r.rows || []
   } else {
+    // Fall back to live roaming_log aggregation.
     const r = await db.query(
       `WITH monthly AS (
          SELECT TRIM(u.postcode) AS postcode,
@@ -172,6 +177,7 @@ async function getLeaderboardData({ userId = null, postcode = null } = {}) {
     rows = r.rows || []
   }
 
+  // Normalize ranking rows for the frontend.
   const normalized = rows.map((row) => {
     const topPercent = Math.max(1, Math.round((1 - toNum(row.percentile_rank, 0)) * 100))
     const code = String(row.postcode || '').trim()
@@ -202,6 +208,7 @@ async function getLeaderboardData({ userId = null, postcode = null } = {}) {
   }
 }
 
+// API entry point for the community leaderboard.
 export default async function handler(req, res) {
   try {
     const userId = req?.query?.userId ? toInt(req.query.userId, null) : null

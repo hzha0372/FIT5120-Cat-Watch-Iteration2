@@ -17,6 +17,7 @@ const toInt = (v, fallback = null) => {
   return Number.isFinite(n) ? Math.round(n) : fallback
 }
 
+// Reuse one PostgreSQL connection pool.
 const getPool = () => {
   if (pool) return pool
   const hasUrl = Boolean(process.env.DATABASE_URL)
@@ -38,6 +39,7 @@ const getPool = () => {
   return pool
 }
 
+// Insert today's indoor log for the signed-in user.
 export default async function handler(req, res) {
   try {
     if ((req.method || 'POST').toUpperCase() !== 'POST') {
@@ -50,11 +52,13 @@ export default async function handler(req, res) {
     }
 
     const db = getPool()
+    // Confirm the user exists before writing a log row.
     const userCheck = await db.query('SELECT id FROM users WHERE id = $1 LIMIT 1', [userId])
     if (!userCheck.rows?.length) {
       return res.status(404).json({ error: `User ${userId} was not found.` })
     }
 
+    // Avoid duplicate indoor logs for the same user and date.
     await db.query(
       `INSERT INTO roaming_log (user_id, log_date, status, source, created_at)
        SELECT $1, CURRENT_DATE, 'indoors', 'catwatch_log_now', NOW()

@@ -57,10 +57,7 @@
   display: none;
 }
 
-/*
-  Shared page system matched to the five-page Figma Make prototype.
-  The app shell header stays separate; these classes style the view content below it.
-*/
+/* Shared page system matched to the five page Figma Make prototype. */
 :root {
   --cw-page-bg: #f9fafb;
   --cw-surface: #ffffff;

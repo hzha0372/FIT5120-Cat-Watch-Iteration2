@@ -83,6 +83,7 @@ const getScoreboardData = async (options = {}) => {
   const db = getPool()
   const monthStart = monthStartUtc()
 
+  // Read prey rate data used for prevented encounter estimates.
   const preyRateResult = await db.query(
     `SELECT stat_value
      FROM cats_behaviour_stats
@@ -91,6 +92,7 @@ const getScoreboardData = async (options = {}) => {
   )
   const preyPerDay = toNum(preyRateResult.rows?.[0]?.stat_value, PREY_RATE_FALLBACK)
 
+  // Resolve the signed in user from id/postcode.
   const resolvedUser =
     options.userId || options.postcode
       ? (
@@ -117,6 +119,7 @@ const getScoreboardData = async (options = {}) => {
     throw new Error('No user row found to calculate Cat Scoreboard metrics.')
   }
 
+  // Load personal logs and suburb metadata in parallel.
   const todayIsoResult = await db.query(`SELECT CURRENT_DATE::text AS today_iso`)
   const todayIso = todayIsoResult.rows?.[0]?.today_iso
 
@@ -186,6 +189,7 @@ const getScoreboardData = async (options = {}) => {
   const userPostcode = String(resolvedUser.postcode || '').trim()
   const suburbMeta = suburbResult.rows?.[0] || {}
 
+  // Build the live suburb ranking from real roaming_log rows.
   const leaderboardResult = await db.query(
     `WITH monthly AS (
        SELECT TRIM(u.postcode) AS postcode,
@@ -261,8 +265,9 @@ const getScoreboardData = async (options = {}) => {
     }
   })
 
-  // Keep leaderboard strictly formula-based from guardian containment data only.
+  // Keep leaderboard strictly formula based from guardian containment data only.
 
+  // Use the user's own suburb for the community summary card.
   const communityBase = userRow ||
     (
       await db.query(
@@ -313,6 +318,7 @@ const getScoreboardData = async (options = {}) => {
 
   const summary = summaryResult.rows?.[0] || {}
 
+  // Return one payload for all scoreboard sections.
   return {
     scope: {
       label: 'Victoria',

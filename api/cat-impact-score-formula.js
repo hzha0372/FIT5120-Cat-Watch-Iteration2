@@ -63,9 +63,6 @@ const getPool = () => {
 }
 
 // Return the scoring model displayed before a suburb is searched.
-// The weight values are the CatWatch formula definition used to calculate
-// suburb_scores; the endpoint also reads the database so the UI can show this
-// block only when real scoring rows and source tables are available.
 export default async function handler(req, res) {
   try {
     const db = getPool()

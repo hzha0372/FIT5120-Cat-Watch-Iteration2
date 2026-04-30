@@ -1,5 +1,6 @@
 ﻿<script setup>
 import { computed, onMounted, ref } from 'vue'
+import { getCurrentUser } from '../utils/auth'
 
 const loading = ref(false)
 const error = ref('')
@@ -43,11 +44,22 @@ const stats = computed(() => [
   },
 ])
 
+// Load scoreboard data for the currently logged in user's postcode.
 const fetchScoreboard = async () => {
   loading.value = true
   error.value = ''
   try {
-    const response = await fetch('/api/cat-scoreboard')
+    const currentUser = getCurrentUser()
+    const params = new URLSearchParams()
+    // Use the registered user id/postcode instead of a fixed suburb.
+    if (currentUser?.id) params.set('userId', String(currentUser.id))
+    if (currentUser?.postcode) params.set('postcode', String(currentUser.postcode))
+
+    if (!params.toString()) {
+      throw new Error('Please sign in again so CatWatch can load your registered postcode.')
+    }
+
+    const response = await fetch(`/api/cat-scoreboard-data?${params.toString()}`)
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Failed to load Cat Scoreboard.')
     data.value = payload
@@ -268,4 +280,3 @@ onMounted(fetchScoreboard)
 .updated-note { margin-top: 18px; color: var(--cw-muted); font-weight: 700; }
 @media (max-width: 1040px) { .scoreboard-layout { grid-template-columns: 1fr; } }
 </style>
-

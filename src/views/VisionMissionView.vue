@@ -5,12 +5,12 @@ const loading = ref(false)
 const error = ref('')
 const data = ref(null)
 
-// Fetch mission statistics from the database-backed API.
+// Fetch mission statistics from the database backed API.
 const fetchMissionStats = async () => {
   loading.value = true
   error.value = ''
   try {
-    const response = await fetch('/api/mission-stats')
+    const response = await fetch('/api/mission-statistics')
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Failed to load mission stats.')
     data.value = payload
@@ -30,8 +30,6 @@ const updatedAtText = computed(() => {
 })
 
 // These cards are the project's original mission content, not operational data.
-// Numeric live coverage on this page is limited to usersTracked/updatedAtText,
-// both loaded from /api/mission-stats.
 const valueCards = [
   {
     title: 'Data transparency',

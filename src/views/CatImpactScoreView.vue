@@ -25,9 +25,7 @@ const scoreRiskKey = computed(() => data.value?.score?.risk?.key || 'lower')
 const riskClass = (key) => `risk-${key || 'lower'}`
 const formulaComponents = computed(() => formulaData.value?.components || [])
 
-// Risk bands are display rules for the score returned by /api/cat-impact-score.
-// The score itself is not calculated here; Vue only maps the API value to a CSS
-// class so high/medium/lower results keep the original visual language.
+// Risk bands are display rules for the score returned by /api/cat impact score data.
 const riskKeyForScore = (score) => {
   const value = Number(score)
   if (value > 70) return 'high'
@@ -42,14 +40,12 @@ const componentToneClass = (component) => {
   return 'component-blue'
 }
 
-// Load the formula block from the API instead of keeping the displayed weights
-// in the Vue component. The API verifies database score rows first, so the
-// intro section cannot silently show disconnected or invented component values.
+// Load the formula block from the API instead of keeping the displayed weights in the Vue component.
 const fetchImpactFormula = async () => {
   formulaLoading.value = true
   formulaError.value = ''
   try {
-    const response = await fetch('/api/impact-formula')
+    const response = await fetch('/api/cat-impact-score-formula')
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Failed to load score formula.')
     formulaData.value = payload
@@ -69,9 +65,7 @@ const suggestionLabel = (item) => {
   return [postcode, name].filter(Boolean).join(' ')
 }
 
-// Search suggestions come from suburb_demographics through /api/suburbs. The
-// component stores only the selected row and postcode; the actual score is
-// requested from /api/cat-impact-score after submit.
+// Search suggestions come from suburb_demographics through /api/victorian suburbs.
 const lookupSuburbs = async () => {
   const q = postcodeInput.value.trim()
   if (q.length < 2) {
@@ -81,7 +75,7 @@ const lookupSuburbs = async () => {
 
   lookupLoading.value = true
   try {
-    const response = await fetch(`/api/suburbs?q=${encodeURIComponent(q)}&limit=6`)
+    const response = await fetch(`/api/victorian-suburbs?q=${encodeURIComponent(q)}&limit=6`)
     const payload = await response.json()
     suggestions.value = payload?.results || []
   } catch {
@@ -106,7 +100,7 @@ const resolvePostcode = async () => {
   const direct = normalizePostcode(postcodeInput.value)
   if (direct) return direct
 
-  const response = await fetch(`/api/suburbs?q=${encodeURIComponent(postcodeInput.value.trim())}&limit=1`)
+  const response = await fetch(`/api/victorian-suburbs?q=${encodeURIComponent(postcodeInput.value.trim())}&limit=1`)
   const payload = await response.json()
   if (!response.ok || !payload?.results?.[0]?.postcode) {
     throw new Error('Please enter a valid Victorian suburb or postcode.')
@@ -117,9 +111,7 @@ const resolvePostcode = async () => {
   return match.postcode
 }
 
-// Submit is the only path that loads score data. It clears stale suggestions,
-// resolves text input to a database postcode, then replaces the whole result
-// payload with the API response so no previous suburb data can linger.
+// Submit is the only path that loads score data.
 const submitPostcode = async () => {
   if (!postcodeInput.value.trim()) {
     error.value = 'Please enter a Victorian suburb or postcode.'
@@ -132,7 +124,7 @@ const submitPostcode = async () => {
   error.value = ''
   try {
     const postcode = await resolvePostcode()
-    const response = await fetch(`/api/cat-impact-score?postcode=${encodeURIComponent(postcode)}`)
+    const response = await fetch(`/api/cat-impact-score-data?postcode=${encodeURIComponent(postcode)}`)
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Failed to load Cat Impact Score.')
     data.value = payload
@@ -198,7 +190,7 @@ onMounted(fetchImpactFormula)
 
       <p v-if="error" class="error-line">{{ error }}</p>
 
-      <!-- Intro uses /api/impact-formula so displayed weights are not stored in this view. -->
+      <!-- Intro uses /api/cat-impact-score-formula so displayed weights are not stored in this view. -->
       <section v-if="!data" class="component-intro">
         <p>
           Your score breaks down into three weighted components - each traceable to a
@@ -212,7 +204,7 @@ onMounted(fetchImpactFormula)
         </div>
       </section>
 
-      <!-- Result sections render only after /api/cat-impact-score returns database rows. -->
+      <!-- Result sections render only after /api/cat-impact-score-data returns database rows. -->
       <section v-if="data" class="impact-result" :class="riskClass(scoreRiskKey)">
         <article class="score-card cw-card cw-card-pad">
           <div class="score-circle" :class="riskClass(scoreRiskKey)">

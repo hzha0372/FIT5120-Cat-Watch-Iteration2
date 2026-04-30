@@ -12,9 +12,7 @@ const formatCount = (value) => {
   return n.toLocaleString()
 }
 
-// Home summary numbers are a direct projection of /api/mission-stats coverage
-// counts. The card labels are static UI copy, but values are never hardcoded in
-// this view; failed API calls show an error instead of sample numbers.
+// Home summary numbers are a direct projection of /api/mission statistics coverage counts.
 const stats = computed(() => {
   const coverage = missionStats.value?.coverage || {}
   return [
@@ -48,21 +46,27 @@ const tools = [
     tone: 'cw-icon-orange',
   },
   {
+    title: 'Photo Identifier',
+    description: 'Upload a wildlife photo, check supported species, and view database sighting history',
+    to: '/photo-identifier',
+    icon: '▣',
+    tone: 'cw-icon-emerald',
+  },
+  {
     title: 'About CatWatch',
     description: 'Learn about our vision to protect wildlife and promote responsible pet ownership',
     to: '/about',
     icon: '◎',
-    tone: 'cw-icon-emerald',
+    tone: 'cw-icon-blue',
   },
 ]
 
-// Fetch once on page load so Home always reflects the current database counts
-// from users, species_cache, reserves, and roaming_log.
+// Fetch once on page load so Home always reflects the current database counts from users, species_cache, reserves, and roaming_log.
 const fetchMissionStats = async () => {
   loading.value = true
   error.value = ''
   try {
-    const response = await fetch('/api/mission-stats')
+    const response = await fetch('/api/mission-statistics')
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Failed to load database stats.')
     missionStats.value = payload

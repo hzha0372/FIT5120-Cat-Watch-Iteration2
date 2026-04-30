@@ -1,8 +1,8 @@
 <script setup>
 import { ref } from 'vue'
-import { login, validateCredentials } from '../utils/auth'
+import { login } from '../utils/auth'
 
-const props = defineProps({
+defineProps({
   title: {
     type: String,
     default: 'Sign in required',
@@ -20,17 +20,31 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
+// Sign in from a protected-page inline panel.
 const handleLogin = async () => {
   error.value = ''
   if (!username.value.trim() || !password.value.trim()) {
-    error.value = 'Please enter your username and password.'
+    error.value = 'Please enter your email and password.'
     return
   }
 
   loading.value = true
   try {
-    login()
+    const response = await fetch('/api/catwatch-authentication', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'login',
+        email: username.value,
+        password: password.value,
+      }),
+    })
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload?.error || 'Unable to sign in.')
+    login(payload.user)
     emit('success')
+  } catch (err) {
+    error.value = err?.message || 'Unable to sign in.'
   } finally {
     loading.value = false
   }
@@ -44,8 +58,8 @@ const handleLogin = async () => {
       <p>{{ subtitle }}</p>
       <form @submit.prevent="handleLogin">
         <label>
-          <span>Username</span>
-          <input v-model="username" type="text" autocomplete="username" />
+          <span>Email Address</span>
+          <input v-model="username" type="email" autocomplete="username" />
         </label>
         <label>
           <span>Password</span>
@@ -126,4 +140,3 @@ button {
   font-weight: 700;
 }
 </style>
-

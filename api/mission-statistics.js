@@ -41,16 +41,11 @@ const getPool = () => {
 }
 
 // Handle API request and return aggregated response data for Home/About pages.
-// These counters are the only numeric summary values shown by those pages, so
-// they are read directly from database tables instead of being duplicated in
-// front-end constants or static JSON files.
 export default async function handler(req, res) {
   try {
     const db = getPool()
 
-    // Each query maps one UI metric to one source table:
-    // - cats_behaviour_stats supplies research-backed behaviour percentages.
-    // - users/reserves/species_cache/roaming_log supply live coverage counts.
+    // Each query maps one UI metric to one source table: cats_behaviour_stats supplies research backed behaviour percentages.
     const [statsResult, usersResult, reservesResult, speciesResult, logsResult] = await Promise.all([
       db.query(`SELECT stat_name, stat_value, source, notes FROM cats_behaviour_stats`),
       db.query(`SELECT COUNT(*)::int AS user_count FROM users`),

@@ -2,11 +2,8 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
-const CAT_TRACKER_BIRD_PREY_STAT =
-  'Domestic cats were observed with bird prey in 59.1% of recorded prey events.'
 
-// File/camera refs are separated because "Upload File" uses a hidden file input,
-// while "Take Photo" opens a live browser camera stream and captures a frame.
+// Store upload input and live camera state.
 const fileInput = ref(null)
 const cameraVideo = ref(null)
 const photoFile = ref(null)
@@ -15,24 +12,21 @@ const cameraOpen = ref(false)
 const cameraError = ref('')
 const cameraStream = ref(null)
 
-// Location is required by the Epic 3 API and by our own database insight calls.
-// The user can type a suburb name or postcode; /api/suburbs resolves it to the
-// canonical Victorian postcode used by species_cache/suburb_demographics.
+// Store suburb/postcode search state.
 const postcodeInput = ref('')
 const selectedSuburb = ref(null)
 const suburbSuggestions = ref([])
 const suburbLoading = ref(false)
 
-// These refs drive the manual confirmation flow used when AI confidence is in
-// the "uncertain" band. Options are loaded from the real species_cache table.
+// Store manual species confirmation options.
 const speciesOptions = ref([])
 const speciesSearch = ref('')
 const speciesLoading = ref(false)
 const selectedSpeciesKey = ref('')
 const activePostcode = ref('')
+const predationStat = ref(null)
 
-// Page state is intentionally kept explicit so the template can show one clear
-// phase at a time: idle upload, analyzing spinner, or identification results.
+// Track the current page phase.
 const phase = ref('idle')
 const errorMessage = ref('')
 const identifyPayload = ref(null)
@@ -40,27 +34,23 @@ const confirmedSpecies = ref(null)
 const confirmedInsight = ref(null)
 const editableSpeciesName = ref('')
 
-// Save status reflects the automatic "confirmed sighting" database insert.
-// It lets the UI tell the user whether the blue community map pin was saved.
+// Track confirmed sighting save status.
 const saveStatus = ref('')
 const saveError = ref('')
 const savedSighting = ref(null)
 
-// If a user uploads a file before entering a postcode, we keep the selected
-// photo and automatically analyze it as soon as a valid postcode is provided.
+// Remember when analysis should resume after location is selected.
 const pendingAutoAnalyze = ref(false)
 let suburbTimer = null
 let speciesTimer = null
 
-// The Epic 3 API returns arrays, but the UI mostly focuses on the top match.
-// possibleMatches is still shown on Low Confidence screens for reference.
+// Use the top model prediction for display.
 const topPrediction = computed(() => identifyPayload.value?.predictions?.[0] || null)
-const possibleMatches = computed(() => (identifyPayload.value?.predictions || []).slice(0, 3))
+const possibleMatches = computed(() => (identifyPayload.value?.predictions || []).slice(0, 1))
 const hasPhoto = computed(() => Boolean(photoFile.value && previewUrl.value))
 const hasResult = computed(() => Boolean(identifyPayload.value))
 
-// The backend can return confidence either as 0.27 or 27. This helper normalizes
-// both forms to 0-1 so the tier logic stays stable.
+// Normalize confidence values to 0 1.
 const normalizeConfidence = (value) => {
   const n = Number(value)
   if (!Number.isFinite(n)) return 0
@@ -71,10 +61,7 @@ const normalizeConfidence = (value) => {
 const confidenceValue = computed(() => normalizeConfidence(topPrediction.value?.confidence))
 const confidencePct = computed(() => Math.round(confidenceValue.value * 100))
 
-// AC3.1.1 defines the three display tiers:
-// 60%+ = pre-filled green AI identified result;
-// 30-59% = uncertain manual confirmation;
-// below 30% = low confidence guidance screen.
+// Convert confidence into the required result tier.
 const resultTier = computed(() => {
   if (!topPrediction.value) return 'low'
   if (confidenceValue.value >= 0.6) return 'high'
@@ -85,7 +72,7 @@ const resultTier = computed(() => {
 const resultTone = computed(() => {
   if (resultTier.value === 'high') {
     return {
-      label: 'AI Identified',
+      label: 'Identified',
       className: 'tone-green',
     }
   }
@@ -105,8 +92,7 @@ const selectedSpecies = computed(
   () => speciesOptions.value.find((item) => item.id === selectedSpeciesKey.value) || null,
 )
 
-// The displayed species may come from the AI result or from the user's manual
-// dropdown confirmation. This computed value gives the template one source.
+// Choose the species shown in the result panel.
 const speciesForDisplay = computed(() => {
   if (confirmedSpecies.value) return confirmedSpecies.value
   if (!topPrediction.value) return null
@@ -136,14 +122,23 @@ const showPredationWarning = computed(() => {
   )
 })
 
-// The suggestion label keeps postcode and suburb together for clarity, while
-// avoiding duplicated labels such as "3029 3029" from imperfect source rows.
-const suburbLabel = (item) => {
+const predationWarningText = computed(() => {
+  const stat = predationStat.value
+  if (!stat?.value) return ''
+  const value = Number(stat.value)
+  const displayValue = Number.isFinite(value) ? value.toLocaleString() : stat.value
+  return `According to ${stat.source}: suburban outdoor cats recorded a median of ${displayValue} prey items per month. This species is at significant risk from roaming domestic cats.`
+})
+
+// Match Risk Map suburb/postcode display behavior.
+const shouldDisplayPostcode = (value) => /^\d{1,4}\b/.test(String(value || '').trim())
+
+const suburbLabel = (item, includePostcode = shouldDisplayPostcode(postcodeInput.value)) => {
   const postcode = String(item?.postcode || '').trim()
   const name = String(item?.name || '').trim()
   if (!postcode) return name
   if (!name || name.toLowerCase() === postcode.toLowerCase()) return postcode
-  return `${postcode} ${name}`
+  return includePostcode ? `${postcode} ${name}` : name
 }
 
 const formatNumber = (value) => {
@@ -154,8 +149,7 @@ const formatNumber = (value) => {
 
 const formatConfidence = (value) => `${Math.round(normalizeConfidence(value) * 100)}%`
 
-// Epic 3 and our local insight API use slightly different JSON key styles.
-// This adapter gives the Vue template one consistent camelCase shape.
+// Normalize species insight API fields for the template.
 const normalizeInsight = (raw, fallbackSpecies = null) => {
   if (!raw) return null
   const prediction = raw.prediction || {}
@@ -184,8 +178,7 @@ const normalizeInsight = (raw, fallbackSpecies = null) => {
 }
 
 const clearResult = () => {
-  // Reset result state so a new upload cannot accidentally display old species
-  // insight, confidence, or saved-sighting messages.
+  // Clear previous identification results.
   identifyPayload.value = null
   confirmedSpecies.value = null
   confirmedInsight.value = null
@@ -198,8 +191,7 @@ const clearResult = () => {
 
 const openUpload = () => fileInput.value?.click()
 
-// Stop every camera track when closing the camera panel. Without this, the
-// browser can keep the phone/laptop camera active in the background.
+// Stop the active camera stream.
 const stopCamera = () => {
   const stream = cameraStream.value
   if (stream) {
@@ -210,8 +202,7 @@ const stopCamera = () => {
   cameraOpen.value = false
 }
 
-// Open a live camera preview. This is different from file upload: the user sees
-// a real-time video stream and then captures one frame into an image file.
+// Open a live camera preview.
 const openCamera = async () => {
   errorMessage.value = ''
   cameraError.value = ''
@@ -224,8 +215,7 @@ const openCamera = async () => {
 
   try {
     stopCamera()
-    // Prefer the back/environment camera on mobile devices, while still letting
-    // desktop browsers choose any available camera.
+    // Prefer the back camera on mobile.
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' } },
       audio: false,
@@ -243,8 +233,7 @@ const openCamera = async () => {
   }
 }
 
-// Shared entry point for uploaded files and camera-captured files. Once a valid
-// image is available, the page previews it and immediately starts analysis.
+// Save the selected photo and start analysis.
 const setPhotoFile = async (file) => {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
   photoFile.value = file
@@ -255,8 +244,7 @@ const setPhotoFile = async (file) => {
   await analyzePhoto()
 }
 
-// Convert the current video frame into a JPEG File. The result is sent through
-// exactly the same FormData flow as a normal "Upload File" image.
+// Capture one camera frame as a JPEG file.
 const captureCameraPhoto = async () => {
   const video = cameraVideo.value
   if (!video?.videoWidth || !video?.videoHeight) {
@@ -274,8 +262,7 @@ const captureCameraPhoto = async () => {
   }
   context.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-  // JPEG keeps the captured image reasonably small for the Epic 3 backend size
-  // limit, while preserving enough detail for species identification.
+  // Keep the captured image small enough for upload.
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
   if (!blob) {
     cameraError.value = 'Unable to capture the photo.'
@@ -287,8 +274,7 @@ const captureCameraPhoto = async () => {
   await setPhotoFile(file)
 }
 
-// Validate uploaded files before sending them to the API. This avoids wasting a
-// backend request on unsupported formats or files over the accepted size.
+// Validate uploaded image files.
 const handleFileChange = async (event) => {
   const file = event.target.files?.[0]
   event.target.value = ''
@@ -307,8 +293,7 @@ const handleFileChange = async (event) => {
   await setPhotoFile(file)
 }
 
-// Return to the initial state, release camera resources, and revoke the preview
-// object URL to avoid memory leaks after repeated uploads.
+// Reset the photo upload state.
 const resetPhoto = () => {
   stopCamera()
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
@@ -321,8 +306,7 @@ const resetPhoto = () => {
 }
 
 const loadSuburbSuggestions = async () => {
-  // Suggestions are database-backed. A short input guard keeps the API quiet
-  // until the user has typed enough characters to search meaningfully.
+  // Load suburb suggestions from the database API.
   const q = postcodeInput.value.trim()
   if (q.length < 2) {
     suburbSuggestions.value = []
@@ -331,7 +315,7 @@ const loadSuburbSuggestions = async () => {
 
   suburbLoading.value = true
   try {
-    const response = await fetch(`/api/suburbs?q=${encodeURIComponent(q)}&limit=6`)
+    const response = await fetch(`/api/victorian-suburbs?q=${encodeURIComponent(q)}&limit=6`)
     const payload = await response.json()
     suburbSuggestions.value = payload?.results || []
   } catch {
@@ -348,18 +332,19 @@ const chooseSuburb = (item) => {
   suburbSuggestions.value = []
   errorMessage.value = ''
 
-  // If the image was already chosen before a postcode was available, selecting
-  // a suburb resumes the pending identification automatically.
+  // Resume analysis if the photo was waiting for location.
   if (pendingAutoAnalyze.value && photoFile.value && phase.value === 'idle') {
     pendingAutoAnalyze.value = false
     void analyzePhoto()
   }
 }
 
-// The Epic 3 endpoint requires a 4-digit postcode. This helper accepts either a
-// direct postcode typed by the user or a suburb name resolved through /api/suburbs.
+// Resolve suburb text into a 4 digit postcode.
 const resolvePostcode = async () => {
-  if (selectedSuburb.value?.postcode && postcodeInput.value === suburbLabel(selectedSuburb.value)) {
+  if (
+    selectedSuburb.value?.postcode &&
+    postcodeInput.value === suburbLabel(selectedSuburb.value)
+  ) {
     activePostcode.value = selectedSuburb.value.postcode
     return selectedSuburb.value.postcode
   }
@@ -373,7 +358,7 @@ const resolvePostcode = async () => {
   const q = postcodeInput.value.trim()
   if (!q) throw new Error('Please enter a Victorian suburb or postcode.')
 
-  const response = await fetch(`/api/suburbs?q=${encodeURIComponent(q)}&limit=1`)
+  const response = await fetch(`/api/victorian-suburbs?q=${encodeURIComponent(q)}&limit=1`)
   const payload = await response.json()
   const match = payload?.results?.[0]
   if (!response.ok || !match?.postcode) {
@@ -384,13 +369,12 @@ const resolvePostcode = async () => {
   return match.postcode
 }
 
-// Load the manual confirmation dropdown from species_cache. This means the
-// dropdown options are real Victorian species records from the database.
+// Load database species options for manual confirmation.
 const loadSpeciesOptions = async () => {
   speciesLoading.value = true
   try {
     const response = await fetch(
-      `/api/native-species?q=${encodeURIComponent(speciesSearch.value.trim())}&limit=160`,
+      `/api/native-species-options?q=${encodeURIComponent(speciesSearch.value.trim())}&limit=160`,
     )
     const payload = await response.json()
     speciesOptions.value = payload?.results || []
@@ -401,8 +385,18 @@ const loadSpeciesOptions = async () => {
   }
 }
 
-// Fetch the confirmed species' conservation status and local sighting history.
-// This endpoint performs database lookups, including the 5km local count.
+// Load database predation statistics.
+const loadPredationStats = async () => {
+  try {
+    const response = await fetch('/api/mission-statistics')
+    const payload = await response.json()
+    predationStat.value = payload?.behaviourStats?.preyMedianMonthly || null
+  } catch {
+    predationStat.value = null
+  }
+}
+
+// Load conservation status and sighting history.
 const loadInsightForSpecies = async (species) => {
   const postcode = activePostcode.value || (await resolvePostcode())
   const params = new URLSearchParams({
@@ -410,14 +404,13 @@ const loadInsightForSpecies = async (species) => {
     scientificName: species.scientificName || '',
     commonName: species.commonName || '',
   })
-  const response = await fetch(`/api/species-insights?${params.toString()}`)
+  const response = await fetch(`/api/species-sighting-insights?${params.toString()}`)
   const payload = await response.json()
   if (!response.ok) throw new Error(payload?.error || 'No database insight found for this species.')
   return normalizeInsight(payload, species)
 }
 
-// Save a confirmed sighting into the backend table so it can be represented as
-// a community-map blue pin. The source records whether it came from AI or manual confirmation.
+// Save the confirmed sighting for the community map.
 const saveConfirmedSighting = async (species, insight, source) => {
   if (!species?.commonName || !species?.scientificName || !activePostcode.value) return
   saveStatus.value = 'saving'
@@ -425,7 +418,7 @@ const saveConfirmedSighting = async (species, insight, source) => {
   savedSighting.value = null
 
   try {
-    const response = await fetch('/api/sighting-reports', {
+    const response = await fetch('/api/species-sighting-reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -450,11 +443,7 @@ const saveConfirmedSighting = async (species, insight, source) => {
 }
 
 const analyzePhoto = async () => {
-  // Full identification flow:
-  // 1. Require an image.
-  // 2. Resolve the suburb/postcode to the postcode required by Epic 3.
-  // 3. Send multipart/form-data to /api/epic3-identify.
-  // 4. Interpret the returned confidence tier and render the correct result UI.
+  // Send the photo and postcode to the identification API.
   errorMessage.value = ''
   clearResult()
 
@@ -476,19 +465,17 @@ const analyzePhoto = async () => {
   phase.value = 'analyzing'
   const controller = new AbortController()
 
-  // The acceptance criteria require a response within seconds. We abort at 5s
-  // and show a clear retry message rather than leaving the spinner forever.
+  // Stop the request after 5 seconds.
   const timeout = window.setTimeout(() => controller.abort(), 5000)
 
   try {
-    // Field names match EPIC3_FRONTEND_API_GUIDE.md:
-    // image = uploaded/captured photo, postcode = local context, top_k = matches.
+    // Build the multipart request expected by the model API.
     const formData = new FormData()
     formData.append('image', photoFile.value)
     formData.append('postcode', postcode)
     formData.append('top_k', '3')
 
-    const response = await fetch('/api/epic3-identify', {
+    const response = await fetch('/api/wildlife-photo-identification', {
       method: 'POST',
       body: formData,
       signal: controller.signal,
@@ -503,8 +490,7 @@ const analyzePhoto = async () => {
     if (!prediction) return
 
     if (normalizeConfidence(prediction.confidence) >= 0.6) {
-      // High-confidence results are auto-confirmed and saved immediately. The
-      // editable text field still lets the user correct the common name if needed.
+      // Auto confirm high confidence matches.
       const species = {
         commonName: prediction.common_name || '',
         scientificName: prediction.scientific_name || '',
@@ -512,13 +498,12 @@ const analyzePhoto = async () => {
       confirmedSpecies.value = species
       editableSpeciesName.value = species.commonName
       try {
-        // Prefer our own 5km database insight endpoint because it matches the
-        // page wording. Fall back to Epic 3's bundled insight if that lookup fails.
+        // Prefer the local database insight endpoint.
         confirmedInsight.value = await loadInsightForSpecies(species)
       } catch {
         confirmedInsight.value = normalizeInsight(payload?.species_insights?.[0], species)
       }
-      await saveConfirmedSighting(species, confirmedInsight.value, 'ai-identified')
+      await saveConfirmedSighting(species, confirmedInsight.value, 'photo-match')
     }
   } catch (error) {
     phase.value = 'idle'
@@ -532,8 +517,7 @@ const analyzePhoto = async () => {
   }
 }
 
-// For uncertain results, the user manually chooses a species from the database
-// dropdown. Confirmation then follows the same insight + save path as AI results.
+// Confirm uncertain results through the species dropdown.
 const confirmManualSpecies = async () => {
   const selected = selectedSpecies.value
   if (!selected) {
@@ -561,8 +545,7 @@ const confirmManualSpecies = async () => {
 }
 
 watch(postcodeInput, () => {
-  // Changing the input invalidates the selected suburb unless the text still
-  // exactly matches that selected row.
+  // Reset selected suburb when the text changes.
   if (!selectedSuburb.value || postcodeInput.value !== suburbLabel(selectedSuburb.value)) {
     selectedSuburb.value = null
     activePostcode.value = ''
@@ -571,8 +554,7 @@ watch(postcodeInput, () => {
   if (suburbTimer) window.clearTimeout(suburbTimer)
   suburbTimer = window.setTimeout(loadSuburbSuggestions, 180)
 
-  // If analysis is waiting only for a postcode, resume automatically once the
-  // typed value contains a valid 4-digit postcode.
+  // Resume analysis when a typed postcode becomes valid.
   if (
     pendingAutoAnalyze.value &&
     photoFile.value &&
@@ -585,12 +567,15 @@ watch(postcodeInput, () => {
 })
 
 watch(speciesSearch, () => {
-  // Debounce species dropdown searches so typing does not spam the database API.
+  // Debounce species dropdown searches.
   if (speciesTimer) window.clearTimeout(speciesTimer)
   speciesTimer = window.setTimeout(loadSpeciesOptions, 180)
 })
 
-onMounted(loadSpeciesOptions)
+onMounted(() => {
+  loadSpeciesOptions()
+  loadPredationStats()
+})
 
 onUnmounted(() => {
   if (suburbTimer) window.clearTimeout(suburbTimer)
@@ -611,22 +596,26 @@ onUnmounted(() => {
             <circle cx="12" cy="13.5" r="3.1" />
           </svg>
         </span>
-        <h1>AI Wildlife Species Identifier</h1>
-        <p>Upload a photo of wildlife and get instant AI-powered species identification</p>
+        <div class="identifier-title-row">
+          <h1>Wildlife Species Identifier</h1>
+          <span class="feature-info-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 10v7" />
+              <path d="M12 7h.01" />
+            </svg>
+          </span>
+        </div>
+        <p>Upload a wildlife photo and get a quick species suggestion</p>
       </header>
 
-      <!-- API note: tells users this page is powered by the external Epic 3/iNaturalist model. -->
+      <!-- Model note: describes the limited current model honestly for users and markers. -->
       <section class="api-note">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 10v7" />
-          <path d="M12 7h.01" />
-        </svg>
         <div>
-          <h2>Powered by iNaturalist Computer Vision API</h2>
+          <h2>Project species photo model</h2>
           <p>
-            Our AI is trained on millions of verified wildlife observations. Upload a clear
-            photo of a bird, feather, reptile, or other wildlife for best results.
+            Our machine learning model is trained on several verified wildlife species.
+            Upload a clear photo of a bird, reptile or other wildlife for best results.
           </p>
         </div>
       </section>
@@ -733,7 +722,7 @@ onUnmounted(() => {
       <section v-if="phase === 'analyzing'" class="analyzing-card">
         <div class="spinner" aria-hidden="true" />
         <h2>Analyzing Image...</h2>
-        <p>AI is identifying species • Usually takes 2-5 seconds</p>
+        <p>Checking species • Usually takes 2-5 seconds</p>
       </section>
 
       <!-- Result state: switches between low, uncertain, and high confidence layouts. -->
@@ -772,15 +761,6 @@ onUnmounted(() => {
             </svg>
             <h4>Low Confidence Result</h4>
           </div>
-          <p>
-            The image quality may be too low for accurate identification. Please retake with:
-          </p>
-          <ul>
-            <li>Better lighting (natural daylight works best)</li>
-            <li>Closer focus on the subject</li>
-            <li>Clearer view of distinctive features</li>
-            <li>Different angle if current view is obscured</li>
-          </ul>
           <div v-if="possibleMatches.length" class="possible-matches">
             <p>Top possible matches for reference</p>
             <span v-for="match in possibleMatches" :key="`${match.scientific_name}-${match.confidence}`">
@@ -794,7 +774,7 @@ onUnmounted(() => {
           <!-- Uncertain confidence: 30-59%, user must confirm from database species dropdown. -->
           <section v-if="resultTier === 'uncertain' && !confirmedSpecies" class="confirm-panel">
             <p>
-              AI suggestion:
+              Suggested match:
               <strong>{{ topPrediction?.common_name || topPrediction?.scientific_name }}</strong>
             </p>
             <label>
@@ -870,7 +850,7 @@ onUnmounted(() => {
           </section>
 
           <!-- Cat predation warning appears for likely birds/reptiles, matching AC3.2. -->
-          <section v-if="displayInsight && showPredationWarning" class="cat-risk">
+          <section v-if="displayInsight && showPredationWarning && predationWarningText" class="cat-risk">
             <h4>
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="12" cy="12" r="9" />
@@ -879,11 +859,7 @@ onUnmounted(() => {
               </svg>
               Cat Predation Risk
             </h4>
-            <p>
-              According to <strong>Cat Tracker SA research</strong>:
-              {{ CAT_TRACKER_BIRD_PREY_STAT }} This species is at significant risk from roaming
-              domestic cats.
-            </p>
+            <p>{{ predationWarningText }}</p>
           </section>
 
           <!-- Save status: confirms the new species_sightings row used by the community pin. -->
@@ -924,6 +900,7 @@ onUnmounted(() => {
     linear-gradient(180deg, #f7fbf6 0%, #ffffff 100%);
   color: #0f172a;
   padding: 34px 16px 56px;
+  overflow-x: hidden;
 }
 
 /* Hero and information banner styles. */
@@ -934,6 +911,30 @@ onUnmounted(() => {
 
 .identifier-hero {
   text-align: center;
+}
+
+.identifier-title-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 100%;
+  margin: 16px 0 0;
+}
+
+.feature-info-icon {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #059669;
+}
+
+.feature-info-icon svg {
+  width: 22px;
+  height: 22px;
 }
 
 .hero-camera {
@@ -962,7 +963,8 @@ svg {
 }
 
 .identifier-hero h1 {
-  margin: 16px 0 0;
+  min-width: 0;
+  margin: 0;
   font-size: clamp(2rem, 4vw, 3.2rem);
   font-weight: 900;
   line-height: 1.05;
@@ -982,21 +984,11 @@ svg {
 
 .api-note {
   margin: 34px 0 24px;
-  display: flex;
-  gap: 18px;
-  align-items: flex-start;
   border: 3px solid #bbf7d0;
   border-radius: 20px;
   background: linear-gradient(90deg, rgba(236, 253, 245, 0.86), rgba(255, 255, 255, 0.92));
   padding: 18px 22px;
   color: #047857;
-}
-
-.api-note > svg {
-  flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  color: #059669;
 }
 
 .api-note h2 {
@@ -1384,8 +1376,7 @@ svg {
   }
 }
 
-/* Result panels: confidence badge, low-confidence guidance, confirmation form,
-   database insight cards, predation warning, and community pin status. */
+/* Result panels: confidence badge, low confidence guidance, confirmation form, database insight cards, predation warning, and community pin status. */
 .results-card {
   margin-top: 28px;
   padding: 30px;

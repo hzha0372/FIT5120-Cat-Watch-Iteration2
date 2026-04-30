@@ -24,7 +24,7 @@ const fetchLeaderboard = async () => {
   loading.value = true
   error.value = ''
   try {
-    const response = await fetch('/api/guardian/leaderboard')
+    const response = await fetch('/api/community-leaderboard')
     const data = await response.json()
     if (!response.ok) throw new Error(data?.error || 'Failed to load guardian leaderboard.')
     payload.value = data

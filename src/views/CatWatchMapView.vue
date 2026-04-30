@@ -50,9 +50,7 @@ const legendItems = [
 // Keep the original suburb/postcode search behavior while using the prototype shell.
 const getPostcodeFromInput = (value) => String(value || '').match(/\b(\d{4})\b/)?.[1] || ''
 
-// Normalize /api/suburbs suggestions before display. The API already reads from
-// suburb_demographics, but the UI also removes duplicate postcodes defensively
-// so partial numeric searches cannot show repeated rows.
+// Normalize /api/victorian suburbs suggestions before display.
 const normalizeSuggestionList = (items, rawQuery) => {
   const q = String(rawQuery || '').trim().toLowerCase()
   const list = Array.isArray(items) ? items : []
@@ -75,20 +73,23 @@ const normalizeSuggestionList = (items, rawQuery) => {
     .slice(0, 8)
 }
 
-const suggestionLabel = (item) => {
+// The Risk Map deliberately changes its visible suburb label based on how the user searched: suburb name searches show only the suburb name, e.g.
+const shouldDisplayPostcode = (value) => /^\d{1,4}\b/.test(String(value || '').trim())
+
+const suggestionLabel = (item, includePostcode = shouldDisplayPostcode(query.value)) => {
   const postcode = String(item?.postcode || '').trim()
   const name = String(item?.name || '').trim()
   if (!postcode) return name
   if (!name || name.toLowerCase() === postcode.toLowerCase()) return postcode
-  return item?.label || `${postcode} · ${name}`
+  return includePostcode ? `${postcode} ${name}` : name
 }
 
-const suggestionQuery = (item) => {
+const suggestionQuery = (item, includePostcode = shouldDisplayPostcode(query.value)) => {
   const postcode = String(item?.postcode || '').trim()
   const name = String(item?.name || '').trim()
   if (!postcode) return name
   if (!name || name.toLowerCase() === postcode.toLowerCase()) return postcode
-  return item?.displayQuery || `${postcode} ${name}`
+  return includePostcode ? `${postcode} ${name}` : name
 }
 
 const chooseSuggestion = (item) => {
@@ -102,9 +103,7 @@ const onInputChange = () => {
   selectedSuggestion.value = null
 }
 
-// Leaflet is created only once; all pins are then cleared/re-rendered from the
-// latest /api/catwatch payload. The default center is just a Victoria viewport,
-// while search results always use database lat/lng from the API response.
+// Leaflet is created only once; all pins are then cleared/re rendered from the latest /api/catwatch risk map data payload.
 const ensureMap = () => {
   if (map.value || !mapEl.value) return
 
@@ -184,9 +183,7 @@ const renderSpecies = async () => {
   if (bounds.length) map.value.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 })
 }
 
-// The map search resolves a suburb/postcode through /api/suburbs, then asks
-// /api/catwatch for species, schedule, risk, and reserve data. If the database
-// has no cache rows for a postcode, the error is shown instead of fallback pins.
+// The map search resolves a suburb/postcode through /api/victorian suburbs, then asks /api/catwatch risk map data for species, schedule, ri...
 const loadMapData = async () => {
   loading.value = true
   error.value = ''
@@ -197,7 +194,7 @@ const loadMapData = async () => {
 
     if (!picked && query.value.trim()) {
       const lookupQuery = postcodeInput || query.value
-      const resp = await fetch(`/api/suburbs?q=${encodeURIComponent(lookupQuery)}&limit=8`)
+      const resp = await fetch(`/api/victorian-suburbs?q=${encodeURIComponent(lookupQuery)}&limit=8`)
       const payload = await resp.json()
       const refined = normalizeSuggestionList(payload?.results, lookupQuery)
       picked = refined[0] || null
@@ -206,14 +203,16 @@ const loadMapData = async () => {
 
     let url = ''
     if (picked?.postcode) {
+      const displayWithPostcode = Boolean(postcodeInput) || shouldDisplayPostcode(query.value)
+      query.value = suggestionQuery(picked, displayWithPostcode)
       url =
-        `/api/catwatch?postcode=${encodeURIComponent(picked.postcode)}` +
+        `/api/catwatch-risk-map-data?postcode=${encodeURIComponent(picked.postcode)}` +
         `&lat=${encodeURIComponent(picked.lat)}` +
         `&lng=${encodeURIComponent(picked.lng)}` +
         `&address=${encodeURIComponent(query.value)}`
       selectedSuggestion.value = picked
     } else if (postcodeInput) {
-      url = `/api/catwatch?postcode=${encodeURIComponent(postcodeInput)}&address=${encodeURIComponent(query.value)}`
+      url = `/api/catwatch-risk-map-data?postcode=${encodeURIComponent(postcodeInput)}&address=${encodeURIComponent(query.value)}`
     } else {
       throw new Error('Please select a Victorian suburb or enter a valid 4-digit postcode.')
     }
@@ -221,6 +220,10 @@ const loadMapData = async () => {
     const response = await fetch(url)
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Failed to load wildlife records.')
+
+    if (!picked && postcodeInput && payload?.location?.suburbName) {
+      query.value = `${postcodeInput} ${payload.location.suburbName}`
+    }
 
     mapData.value = payload
     activeRiskFilter.value = 'red'
@@ -258,7 +261,7 @@ watch(query, (value) => {
   suggestTimer = setTimeout(async () => {
     searchingSuggestions.value = true
     try {
-      const resp = await fetch(`/api/suburbs?q=${encodeURIComponent(text)}&limit=8`)
+      const resp = await fetch(`/api/victorian-suburbs?q=${encodeURIComponent(text)}&limit=8`)
       const payload = await resp.json()
       suggestions.value = normalizeSuggestionList(payload?.results, text)
     } catch {

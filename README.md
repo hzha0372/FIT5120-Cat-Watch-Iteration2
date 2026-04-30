@@ -18,7 +18,7 @@ npm run dev
 
 ## Database setup (PostgreSQL/PostGIS)
 
-The API route `api/catwatch.js` supports your existing schema:
+The API route `api/catwatch-risk-map-data.js` supports your existing schema:
 
 - `suburb_demographics`
 - `species_cache`
@@ -38,4 +38,4 @@ The project queries the real database directly for:
 
 ## Notes
 
-- During local dev, Vite serves `/api/catwatch`, `/api/suburbs`, and `/api/cat-impact-score` via middleware in `vite.config.js`.
+- During local dev, Vite serves `/api/catwatch-risk-map-data`, `/api/victorian-suburbs`, and `/api/cat-impact-score-data` via middleware in `vite.config.js`.

@@ -12,8 +12,7 @@ const DEFAULT_DB_CONFIG = {
 
 let pool = null
 
-// Reuse one PostgreSQL pool per Node process. Environment variables override
-// the default project database when deployed to another environment.
+// Reuse one PostgreSQL pool per Node process.
 const getPool = () => {
   if (pool) return pool
   const hasUrl = Boolean(process.env.DATABASE_URL)
@@ -39,16 +38,12 @@ const cleanText = (value) => String(value || '').trim()
 
 export default async function handler(req, res) {
   try {
-    // q is optional. When q is blank, the endpoint returns the first real
-    // species records alphabetically; when q is present, it filters common and
-    // scientific names from species_cache.
+    // q is optional.
     const q = cleanText(req.query?.q)
     const limit = Math.max(1, Math.min(250, Number(req.query?.limit) || 80))
     const db = getPool()
 
-    // species_cache contains many observation rows per species. The CTE groups
-    // rows by scientific/common name, counts sightings, and uses ROW_NUMBER to
-    // keep one representative row per scientific name for the dropdown.
+    // species_cache contains many observation rows per species.
     const result = await db.query(
       `WITH species_rows AS (
          SELECT

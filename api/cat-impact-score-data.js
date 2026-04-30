@@ -10,10 +10,7 @@ const DEFAULT_DB_CONFIG = {
   database: 'echoes_of_earth',
 }
 
-// These weights define how the three database-backed component scores add up
-// to the final Cat Impact Score. The raw values and per-suburb component scores
-// still come from suburb_scores; these constants are the formula contract used
-// to interpret those stored database columns consistently across API responses.
+// These weights define how the three database backed component scores add up to the final Cat Impact Score.
 const COMPONENT_WEIGHTS = {
   containmentGap: 45,
   wildlifeDensity: 35,
@@ -28,7 +25,7 @@ const toNum = (value, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback
 }
 
-// Convert count-like values into rounded integers for display and ranking rows.
+// Convert count like values into rounded integers for display and ranking rows.
 const toInt = (value, fallback = 0) => {
   const n = Number(value)
   return Number.isFinite(n) ? Math.round(n) : fallback
@@ -100,10 +97,7 @@ const sourceText = (source, fallback) => {
   return text || fallback
 }
 
-// Load source labels and ownership-rate metadata used in the score explanation.
-// This keeps the UI text traceable to database source rows instead of embedding
-// research/source names in the Vue component. If a source row is missing, the
-// response still exposes a conservative label, but no suburb score is invented.
+// Load source labels and ownership rate metadata used in the score explanation.
 const getSources = async (db) => {
   const [statsResult, ownershipResult] = await Promise.all([
     db.query(
@@ -125,6 +119,7 @@ const getSources = async (db) => {
   }
 
   const containment = stats.get('containment_gap_pct')
+  const outdoor = stats.get('outdoor_cat_pct')
   const ownership = ownershipResult.rows?.[0] || null
 
   return {
@@ -132,13 +127,11 @@ const getSources = async (db) => {
     wildlifeDensity: 'Atlas of Living Australia',
     roamingCatDensity: 'ABS Census 2021 + Legge et al. 2020',
     ownershipRate: ownership ? toNum(ownership.ownership_pct, 34) : 34,
+    outdoorCatRate: outdoor ? toNum(outdoor.stat_value, 0) : 0,
   }
 }
 
-// Transform one suburb_scores row into the three weighted cards shown on the
-// Impact Score page. Every displayed score/raw value is read from the selected
-// suburb_scores row; this function only attaches labels, units, and source text
-// so the frontend can render the cards without knowing database column names.
+// Transform one suburb_scores row into the three weighted cards shown on the Impact Score page.
 const buildComponentRows = (row, sources) => [
   {
     key: 'containmentGap',
@@ -178,10 +171,7 @@ const buildComponentRows = (row, sources) => [
   },
 ]
 
-// Build the full LGA comparison list directly from pre-computed suburb score
-// rows. This is intentionally not driven by user records, sample postcodes, or
-// frontend state: the selected suburb's LGA decides the comparison group, then
-// every row is sorted by the real total_impact_score stored in the database.
+// Build the full LGA comparison list directly from pre computed suburb score rows.
 const getRankingRows = async (db, lgaName) => {
   const result = await db.query(
     `SELECT TRIM(s.postcode) AS postcode,
@@ -221,10 +211,7 @@ const getRankingRows = async (db, lgaName) => {
   })
 }
 
-// Return a stable ranking window for the UI. The previous frontend-only slice
-// could hide the searched suburb when it was outside the top rows. This function
-// always keeps the selected postcode in the returned list, centered where
-// possible, while still respecting the real row count for small LGAs.
+// Return a stable ranking window for the UI.
 const buildRankingWindow = (rows, selectedPostcode, size = 8) => {
   const list = Array.isArray(rows) ? rows : []
   if (list.length <= size) return list
@@ -238,10 +225,7 @@ const buildRankingWindow = (rows, selectedPostcode, size = 8) => {
   return list.slice(start, start + size)
 }
 
-// Assemble the complete page payload for one postcode from database-backed score
-// and suburb tables. The handler fails loudly when a postcode has no
-// suburb_scores row, because showing placeholder or guessed scores would violate
-// the project's "real database data only" rule.
+// Assemble the complete page payload for one postcode from database backed score and suburb tables.
 const getImpactScore = async (postcode) => {
   const db = getPool()
   const targetResult = await db.query(
@@ -315,13 +299,13 @@ const getImpactScore = async (postcode) => {
       roamingCatEstimate: {
         householdCount: toInt(row.household_count),
         ownershipRatePct: sources.ownershipRate,
-        outdoorRatePct: 71,
+        outdoorRatePct: sources.outdoorCatRate,
       },
     },
   }
 }
 
-// API entry point used by Vite middleware and serverless-style handlers.
+// API entry point used by Vite middleware and serverless style handlers.
 export default async function handler(req, res) {
   try {
     const postcode = cleanPostcode(req.query?.postcode)

@@ -40,8 +40,7 @@ const toNumOrNull = (value) => {
   return Number.isFinite(n) ? n : null
 }
 
-// Local Vite middleware and serverless runtimes can expose request bodies in
-// different shapes. This helper supports object, string, and raw stream bodies.
+// Local Vite middleware and serverless runtimes can expose request bodies in different shapes.
 const readJsonBody = async (req) => {
   if (req.body && typeof req.body === 'object') return req.body
   if (typeof req.body === 'string') return JSON.parse(req.body || '{}')
@@ -55,9 +54,7 @@ const readJsonBody = async (req) => {
   return text ? JSON.parse(text) : {}
 }
 
-// The original schema screenshot did not show a species_sightings table, so the
-// API creates it if needed. This keeps the "save confirmed sighting" feature
-// self-contained while preserving existing project tables.
+// The original schema screenshot did not show a species_sightings table, so the API creates it if needed.
 const ensureSightingTable = async (db) => {
   await db.query(`
     CREATE TABLE IF NOT EXISTS species_sightings (
@@ -83,8 +80,7 @@ const ensureSightingTable = async (db) => {
   `)
 }
 
-// If the client did not send precise pin coordinates, use the selected postcode
-// centroid from suburb_demographics so the saved sighting can still appear on a map.
+// If the client did not send precise pin coordinates, use the selected postcode centroid from suburb_demographics so the saved sighting can...
 const getPostcodeLocation = async (db, postcode) => {
   const result = await db.query(
     `SELECT centroid_lat, centroid_lng
@@ -108,12 +104,11 @@ export default async function handler(req, res) {
 
     const body = await readJsonBody(req)
 
-    // The frontend sends confirmed species and location context. Names are
-    // trimmed before storage to keep database rows clean and searchable.
+    // The frontend sends confirmed species and location context.
     const postcode = cleanText(body.postcode)
     const commonName = cleanText(body.commonName)
     const scientificName = cleanText(body.scientificName)
-    const source = cleanText(body.source) || 'ai-photo-identifier'
+    const source = cleanText(body.source) || 'photo-identifier'
     const photoFilename = cleanText(body.photoFilename)
     const confidence = toNumOrNull(body.confidence)
 
@@ -130,15 +125,13 @@ export default async function handler(req, res) {
     const db = getPool()
     const location = await getPostcodeLocation(db, postcode)
 
-    // Prefer explicit lat/lng from the insight API; otherwise fall back to the
-    // postcode centroid. Either way the data remains database/location based.
+    // Prefer explicit lat/lng from the insight API; otherwise fall back to the postcode centroid.
     const lat = toNumOrNull(body.lat) ?? toNumOrNull(location?.centroid_lat)
     const lng = toNumOrNull(body.lng) ?? toNumOrNull(location?.centroid_lng)
 
     await ensureSightingTable(db)
 
-    // Insert the confirmed sighting and return the normalized row immediately
-    // so the Vue page can show "saved as a blue community pin".
+    // Insert the confirmed sighting and return the normalized row immediately so the Vue page can show "saved as a blue community pin".
     const result = await db.query(
       `INSERT INTO species_sightings
          (postcode, vernacular_name, scientific_name, confidence, lat, lng, source, photo_filename)

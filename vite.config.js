@@ -3,22 +3,23 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
-import catwatchHandler from './api/catwatch.js'
-import suburbsHandler from './api/suburbs.js'
-import catScoreboardHandler from './api/cat-scoreboard.js'
-import catImpactScoreHandler from './api/cat-impact-score.js'
-import impactFormulaHandler from './api/impact-formula.js'
-import missionStatsHandler from './api/mission-stats.js'
-import epic3IdentifyHandler from './api/epic3-identify.js'
-import nativeSpeciesHandler from './api/native-species.js'
-import speciesInsightsHandler from './api/species-insights.js'
-import sightingReportsHandler from './api/sighting-reports.js'
+import catwatchRiskMapDataHandler from './api/catwatch-risk-map-data.js'
+import victorianSuburbsHandler from './api/victorian-suburbs.js'
+import catScoreboardDataHandler from './api/cat-scoreboard-data.js'
+import catImpactScoreDataHandler from './api/cat-impact-score-data.js'
+import catImpactScoreFormulaHandler from './api/cat-impact-score-formula.js'
+import missionStatisticsHandler from './api/mission-statistics.js'
+import wildlifePhotoIdentificationHandler from './api/wildlife-photo-identification.js'
+import nativeSpeciesOptionsHandler from './api/native-species-options.js'
+import speciesSightingInsightsHandler from './api/species-sighting-insights.js'
+import speciesSightingReportsHandler from './api/species-sighting-reports.js'
+import catwatchAuthenticationHandler from './api/catwatch-authentication.js'
+import communityLeaderboardHandler from './api/community-leaderboard.js'
+import roamingLogEntryHandler from './api/roaming-log-entry.js'
 
 // Adapt function-style handler into Vite middleware.
 const createApiMiddleware = (handler) => async (req, res) => {
-  // Vercel-style API handlers expect req.query and res.status().json().
-  // Vite middleware receives raw Node req/res, so this adapter gives local dev
-  // the same interface as deployment without duplicating API code.
+  // Give Vite requests the same API shape as deployment.
   const url = new URL(req.url || '/', 'http://localhost')
   const query = Object.fromEntries(url.searchParams.entries())
   const reqLike = Object.assign(req, { query })
@@ -51,23 +52,30 @@ export default defineConfig({
     {
       name: 'local-api-routes',
       configureServer(server) {
-        // Register local API routes so the Vue app can call /api/... during
-        // development. Production deployment uses the same handler files.
-        server.middlewares.use('/api/catwatch', createApiMiddleware(catwatchHandler))
-        server.middlewares.use('/api/suburbs', createApiMiddleware(suburbsHandler))
-        server.middlewares.use('/api/cat-scoreboard', createApiMiddleware(catScoreboardHandler))
-        server.middlewares.use('/api/cat-impact-score', createApiMiddleware(catImpactScoreHandler))
-        server.middlewares.use('/api/impact-formula', createApiMiddleware(impactFormulaHandler))
-        server.middlewares.use('/api/mission-stats', createApiMiddleware(missionStatsHandler))
-        // Epic 3 feature endpoints:
-        // - epic3-identify proxies the remote computer vision service.
-        // - native-species fills the manual confirmation dropdown.
-        // - species-insights returns conservation/local sighting details.
-        // - sighting-reports saves confirmed sightings for community map pins.
-        server.middlewares.use('/api/epic3-identify', createApiMiddleware(epic3IdentifyHandler))
-        server.middlewares.use('/api/native-species', createApiMiddleware(nativeSpeciesHandler))
-        server.middlewares.use('/api/species-insights', createApiMiddleware(speciesInsightsHandler))
-        server.middlewares.use('/api/sighting-reports', createApiMiddleware(sightingReportsHandler))
+        // Register local API routes for development.
+        server.middlewares.use('/api/catwatch-risk-map-data', createApiMiddleware(catwatchRiskMapDataHandler))
+        server.middlewares.use('/api/victorian-suburbs', createApiMiddleware(victorianSuburbsHandler))
+        server.middlewares.use('/api/cat-scoreboard-data', createApiMiddleware(catScoreboardDataHandler))
+        server.middlewares.use('/api/cat-impact-score-data', createApiMiddleware(catImpactScoreDataHandler))
+        server.middlewares.use('/api/cat-impact-score-formula', createApiMiddleware(catImpactScoreFormulaHandler))
+        server.middlewares.use('/api/mission-statistics', createApiMiddleware(missionStatisticsHandler))
+        server.middlewares.use('/api/catwatch-authentication', createApiMiddleware(catwatchAuthenticationHandler))
+        server.middlewares.use('/api/community-leaderboard', createApiMiddleware(communityLeaderboardHandler))
+        server.middlewares.use('/api/roaming-log-entry', createApiMiddleware(roamingLogEntryHandler))
+        // Register photo identifier feature endpoints.
+        server.middlewares.use(
+          '/api/wildlife-photo-identification',
+          createApiMiddleware(wildlifePhotoIdentificationHandler),
+        )
+        server.middlewares.use('/api/native-species-options', createApiMiddleware(nativeSpeciesOptionsHandler))
+        server.middlewares.use(
+          '/api/species-sighting-insights',
+          createApiMiddleware(speciesSightingInsightsHandler),
+        )
+        server.middlewares.use(
+          '/api/species-sighting-reports',
+          createApiMiddleware(speciesSightingReportsHandler),
+        )
       },
     },
   ],

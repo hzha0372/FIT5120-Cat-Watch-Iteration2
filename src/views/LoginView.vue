@@ -1,18 +1,25 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { login, validateCredentials } from '../utils/auth'
+import { login } from '../utils/auth'
 
 const route = useRoute()
 const router = useRouter()
+const mode = ref('login')
 const username = ref('')
 const password = ref('')
+const registerName = ref('')
+const registerEmail = ref('')
+const registerPassword = ref('')
+const registerPostcode = ref('')
 const loading = ref(false)
 const error = ref('')
+const success = ref('')
 const redirectTarget = computed(() =>
   typeof route.query.redirect === 'string' ? route.query.redirect : '/',
 )
 
+// Choose hero text based on the protected page that sent the user here.
 const heroTitle = computed(() => {
   if (redirectTarget.value.startsWith('/impact-score')) return 'Welcome Back'
   if (redirectTarget.value.startsWith('/cat-scoreboard') || redirectTarget.value.startsWith('/my-dashboard') || redirectTarget.value.startsWith('/dashboard')) {
@@ -22,25 +29,90 @@ const heroTitle = computed(() => {
 })
 
 const heroSubtitle = computed(() => {
-  if (redirectTarget.value.startsWith('/impact-score')) return 'Continue your impact socre'
+  if (redirectTarget.value.startsWith('/impact-score')) return 'Continue your impact score'
   if (redirectTarget.value.startsWith('/cat-scoreboard') || redirectTarget.value.startsWith('/my-dashboard') || redirectTarget.value.startsWith('/dashboard')) {
-    return 'Continue your scoreborad'
+    return 'Continue your scoreboard'
   }
   return 'Use your team account to access protected analytics pages while keeping public pages open for visitors.'
 })
 
+const switchMode = (nextMode) => {
+  mode.value = nextMode
+  error.value = ''
+  success.value = ''
+}
+
+// Send login/register requests to the database auth endpoint.
+const postAuth = async (body) => {
+  const response = await fetch('/api/catwatch-authentication', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload?.error || 'Authentication failed.')
+  return payload
+}
+
+// Log in and save the returned user profile in the browser session.
 const handleLogin = async () => {
   error.value = ''
+  success.value = ''
   if (!username.value.trim() || !password.value.trim()) {
-    error.value = 'Please enter your username and password.'
+    error.value = 'Please enter your email and password.'
     return
   }
 
   loading.value = true
   try {
-    login()
+    const payload = await postAuth({
+      action: 'login',
+      email: username.value,
+      password: password.value,
+    })
+    login(payload.user)
     const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     await router.replace(redirectTo)
+  } catch (err) {
+    error.value = err?.message || 'Unable to sign in.'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Register a new database account and continue as the new user.
+const handleRegister = async () => {
+  error.value = ''
+  success.value = ''
+  if (
+    !registerName.value.trim() ||
+    !registerEmail.value.trim() ||
+    !registerPassword.value.trim() ||
+    !registerPostcode.value.trim()
+  ) {
+    error.value = 'Please enter your name, email, password, and postcode.'
+    return
+  }
+  if (!/^\d{4}$/.test(registerPostcode.value.trim())) {
+    error.value = 'Please enter a 4-digit Victorian postcode.'
+    return
+  }
+
+  loading.value = true
+  try {
+    const payload = await postAuth({
+      action: 'register',
+      name: registerName.value,
+      email: registerEmail.value,
+      password: registerPassword.value,
+      postcode: registerPostcode.value,
+    })
+    login(payload.user)
+    success.value = 'Account created.'
+    const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    await router.replace(redirectTo)
+  } catch (err) {
+    error.value = err?.message || 'Unable to create account.'
   } finally {
     loading.value = false
   }
@@ -60,11 +132,12 @@ const handleLogin = async () => {
       </article>
 
       <article class="login-form-wrap">
-        <h2>Login</h2>
-        <form class="login-form" @submit.prevent="handleLogin">
+        <h2>{{ mode === 'login' ? 'Login' : 'Create Account' }}</h2>
+
+        <form v-if="mode === 'login'" class="login-form" @submit.prevent="handleLogin">
           <label>
-            <span>Username</span>
-            <input v-model="username" type="text" autocomplete="username" placeholder="Enter username" />
+            <span>Email Address</span>
+            <input v-model="username" type="email" autocomplete="username" placeholder="Enter your email" />
           </label>
           <label>
             <span>Password</span>
@@ -74,7 +147,42 @@ const handleLogin = async () => {
             {{ loading ? 'Signing in...' : 'Sign In' }}
           </button>
         </form>
+
+        <form v-else class="login-form" @submit.prevent="handleRegister">
+          <label>
+            <span>Full Name</span>
+            <input v-model="registerName" type="text" autocomplete="name" placeholder="Enter your name" />
+          </label>
+          <label>
+            <span>Email Address</span>
+            <input v-model="registerEmail" type="email" autocomplete="email" placeholder="Enter your email" />
+          </label>
+          <label>
+            <span>Password</span>
+            <input
+              v-model="registerPassword"
+              type="password"
+              autocomplete="new-password"
+              placeholder="Enter your password"
+            />
+          </label>
+          <label>
+            <span>Postcode</span>
+            <input v-model="registerPostcode" inputmode="numeric" placeholder="e.g., 3168" />
+          </label>
+          <button type="submit" :disabled="loading">
+            {{ loading ? 'Creating...' : 'Create Account' }}
+          </button>
+        </form>
+
+        <button v-if="mode === 'login'" type="button" class="mode-link" @click="switchMode('register')">
+          Don't have an account? Sign up
+        </button>
+        <button v-else type="button" class="mode-link" @click="switchMode('login')">
+          Already have an account? Sign in
+        </button>
         <p v-if="error" class="error">{{ error }}</p>
+        <p v-if="success" class="success">{{ success }}</p>
       </article>
     </section>
   </main>
@@ -208,19 +316,41 @@ const handleLogin = async () => {
   cursor: pointer;
 }
 
+.mode-link {
+  display: block;
+  width: 100%;
+  margin: 20px 0 0;
+  border: 0;
+  background: transparent;
+  color: #059669;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .login-form button:disabled {
   cursor: wait;
   opacity: 0.75;
 }
 
-.error {
+.error,
+.success {
   margin-top: 12px;
-  border: 1px solid #fecaca;
-  background: #fff1f2;
-  color: #b91c1c;
   border-radius: 10px;
   padding: 10px 12px;
   font-weight: 700;
+}
+
+.error {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #b91c1c;
+}
+
+.success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
 }
 
 @media (max-width: 960px) {
@@ -243,4 +373,3 @@ const handleLogin = async () => {
   }
 }
 </style>
-

@@ -18,7 +18,7 @@ const toInt = (v, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback
 }
 
-// Parse hour from text and bound it to 0-23.
+// Parse hour from text and bound it to 0 23.
 const parseTimeHour = (value, fallbackHour = null) => {
   if (value === null || value === undefined || value === '') return fallbackHour
   const text = String(value)
@@ -51,7 +51,7 @@ const inferSpeciesType = (className = '', commonName = '', scientificName = '') 
   return 'Native Species'
 }
 
-// Convert 24-hour value to am/pm label.
+// Convert 24 hour value to am/pm label.
 const formatHourLabel = (hour) => {
   const h = Number(hour)
   if (!Number.isFinite(h)) return ''
@@ -61,7 +61,7 @@ const formatHourLabel = (hour) => {
   return `${hour12}${suffix}`
 }
 
-// Build activity time-window display label.
+// Build activity time window display label.
 const buildWindowLabel = (startHour, endHour) => `${formatHourLabel(startHour)}-${formatHourLabel(endHour)}`
 
 // Classify hour into dawn/dusk/night windows.
@@ -255,7 +255,7 @@ const loadSpeciesFromDbCache = async (postcode) => {
   return dbResult?.rows || []
 }
 
-// Load global active-hour profiles for species.
+// Load global active hour profiles for species.
 const loadGlobalHourProfiles = async (speciesKeys) => {
   const keys = Array.isArray(speciesKeys) ? speciesKeys.filter(Boolean) : []
   if (!keys.length) return new Map()
@@ -343,7 +343,7 @@ const formatDistance = (meters) => {
   return `${(meters / 1000).toFixed(1)}km`
 }
 
-// Extract 4-digit postcode from address string.
+// Extract 4 digit postcode from address string.
 const extractPostcode = (addressLike) => {
   const match = String(addressLike || '').match(/\b(\d{4})\b/)
   if (!match) return ''
@@ -353,7 +353,7 @@ const extractPostcode = (addressLike) => {
 // Handle API request and return aggregated response data.
 export default async function handler(req, res) {
   try {
-    // Parse location-related inputs from query parameters and normalize types.
+    // Parse location related inputs from query parameters and normalize types.
     const address = typeof req.query.address === 'string' ? req.query.address : ''
     const postcodeInput = typeof req.query.postcode === 'string' ? req.query.postcode.trim() : ''
     const latInput = Number(req.query.lat)
@@ -363,10 +363,7 @@ export default async function handler(req, res) {
 
     let location = null
 
-    // Prefer explicit lat/lng from a selected suburb suggestion, then use the
-    // postcode to pull the official suburb name from suburb_demographics. This
-    // keeps the map centered on the user's chosen database location without
-    // inventing coordinates in the frontend.
+    // Prefer explicit lat/lng from a selected suburb suggestion, then use the postcode to pull the official suburb name from suburb_demographics.
     if (hasExplicitCoords) {
       const fromDb = /^\d{4}$/.test(postcodeCandidate) ? await getPostcodeLocation(postcodeCandidate) : null
       location = {
@@ -405,11 +402,7 @@ export default async function handler(req, res) {
       return
     }
 
-    // Build per-species activity statistics from local cached observations.
-    // These observation_hour values come from species_cache. When a local
-    // postcode has no meaningful hours, the code later falls back to global
-    // profiles from the same database table so the overlap explanation still
-    // comes from real observations rather than a hand-written default.
+    // Build per species activity statistics from local cached observations.
     const speciesFrequency = new Map()
     const speciesHourProfile = new Map()
     const speciesHourSet = new Map()
@@ -437,9 +430,7 @@ export default async function handler(req, res) {
     }
     const globalProfiles = await loadGlobalHourProfiles(fallbackSpeciesKeys)
 
-    // De-duplicate map pins so the same species at the same point appears once.
-    // The database cache can contain repeated observations; de-duplication
-    // changes only map readability, not the summary counts returned above.
+    // De duplicate map pins so the same species at the same point appears once.
     const dedupedRows = []
     const seenPinKey = new Set()
     for (const row of rawSpecies) {
@@ -453,9 +444,7 @@ export default async function handler(req, res) {
       dedupedRows.push(row)
     }
 
-    // Transform DB rows into API-friendly species objects used by the frontend
-    // map. Risk colors are derived from state_conservation, and cat overlap is
-    // calculated from database user schedules plus database observation hours.
+    // Transform DB rows into API friendly species objects used by the frontend map.
     const species = dedupedRows.map((item, idx) => {
       const speciesKey = String(item.scientific_name || '').trim().toLowerCase()
       const localProfile = speciesHourProfile.get(speciesKey)

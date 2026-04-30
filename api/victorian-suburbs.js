@@ -51,10 +51,7 @@ export default async function handler(req, res) {
     const isPostcode = Boolean(postcodePrefix)
 
     const db = getPool()
-    // Search only Victorian suburb_demographics rows. Numeric queries match
-    // postcode prefixes; text queries match suburb names. The ORDER BY clause
-    // pushes rows whose suburb_name is just the postcode behind real suburb
-    // names, which prevents suggestions like "3114 · 3114" from appearing first.
+    // Search only Victorian suburb_demographics rows.
     const result = await db.query(
       `SELECT TRIM(postcode) AS postcode, suburb_name, centroid_lat, centroid_lng, population
        FROM suburb_demographics
@@ -85,9 +82,7 @@ export default async function handler(req, res) {
       const postcode = String(row.postcode || '')
       const name = String(row.suburb_name || '').trim()
       if (!postcode || !name) continue
-      // Some source rows use the postcode as the suburb name. For those records
-      // the UI should show one clean postcode, not "postcode · postcode"; the
-      // displayQuery mirrors that same cleaned text when a user selects it.
+      // Some source rows use the postcode as the suburb name.
       const hasRealName = name.toLowerCase() !== postcode.toLowerCase()
       const label = isPostcode && hasRealName ? `${postcode} · ${name}` : hasRealName ? name : postcode
       const displayQuery = hasRealName ? `${postcode} ${name}` : postcode
