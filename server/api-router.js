@@ -40,13 +40,14 @@ const getRouteName = (req, url) => {
 
 export default async function apiRouter(req, res) {
   const url = new URL(req.url || '/', 'http://localhost')
-  const routeName = getRouteName(req, url)
-  const handler = handlers[routeName]
-
   req.query = {
     ...(req.query || {}),
     ...Object.fromEntries(url.searchParams.entries()),
   }
+
+  const routeName = getRouteName(req, url)
+  const handler = handlers[routeName]
+
   delete req.query.route
 
   if (!handler) {

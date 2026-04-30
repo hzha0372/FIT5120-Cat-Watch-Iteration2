@@ -38,5 +38,5 @@ The project queries the real database directly for:
 
 ## Notes
 
-- Vercel sees only one function file: `api/[...route].js`.
+- Vercel sees only one function file: `api/index.js`.
 - During local dev, Vite serves all `/api/...` requests through the same router in `server/api-router.js`.
