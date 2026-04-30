@@ -4,6 +4,7 @@ import HomeView from '../views/HomeView.vue'
 import CatImpactScoreView from '../views/CatImpactScoreView.vue'
 import CatScoreboardView from '../views/CatScoreboardView.vue'
 import VisionMissionView from '../views/VisionMissionView.vue'
+import AiPhotoIdentifierView from '../views/AiPhotoIdentifierView.vue'
 
 // Central route table for the CatWatch single-page app.
 const routes = [
@@ -24,6 +25,11 @@ const routes = [
     // Preserve old dashboard URLs while exposing the restored Cat's Scoreboard route.
     alias: ['/my-dashboard', '/dashboard'],
     component: CatScoreboardView,
+  },
+  {
+    path: '/ai-photo-identifier',
+    alias: ['/sighting-reporter'],
+    component: AiPhotoIdentifierView,
   },
   {
     path: '/about',

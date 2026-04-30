@@ -1,10 +1,52 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 // Track logo loading so the header remains clean if the image asset is unavailable.
 const logoMissing = ref(false)
 const route = useRoute()
+const exploreOpen = ref(false)
+
+const exploreItems = [
+  {
+    label: 'Risk Map',
+    to: '/risk-map',
+    match: (path) => path.startsWith('/risk-map'),
+  },
+  {
+    label: 'Impact Score',
+    to: '/impact-score',
+    match: (path) => path.startsWith('/impact-score'),
+  },
+  {
+    label: 'Scoreboard',
+    to: '/cat-scoreboard',
+    match: (path) =>
+      path.startsWith('/cat-scoreboard') ||
+      path.startsWith('/my-dashboard') ||
+      path.startsWith('/dashboard'),
+  },
+  {
+    label: 'AI Photo Identifier',
+    to: '/ai-photo-identifier',
+    match: (path) => path.startsWith('/ai-photo-identifier') || path.startsWith('/sighting-reporter'),
+  },
+  {
+    label: 'About Us',
+    to: '/about',
+    match: (path) => path.startsWith('/about') || path.startsWith('/vision-mission'),
+  },
+]
+
+const exploreActive = computed(() => exploreItems.some((item) => item.match(route.path)))
+const isExploreItemActive = (item) => item.match(route.path)
+
+watch(
+  () => route.fullPath,
+  () => {
+    exploreOpen.value = false
+  },
+)
 </script>
 
 <template>
@@ -28,34 +70,37 @@ const route = useRoute()
           <RouterLink to="/" class="nav-pill" :class="{ active: route.path === '/' }">
             Home
           </RouterLink>
-          <RouterLink
-            to="/risk-map"
-            class="nav-pill"
-            :class="{ active: route.path.startsWith('/risk-map') }"
+          <div
+            class="explore-nav"
+            :class="{ open: exploreOpen, active: exploreActive }"
+            @mouseenter="exploreOpen = true"
+            @mouseleave="exploreOpen = false"
           >
-            Risk Map
-          </RouterLink>
-          <RouterLink
-            to="/impact-score"
-            class="nav-pill"
-            :class="{ active: route.path.startsWith('/impact-score') }"
-          >
-            Impact Score
-          </RouterLink>
-          <RouterLink
-            to="/cat-scoreboard"
-            class="nav-pill"
-            :class="{ active: route.path.startsWith('/cat-scoreboard') || route.path.startsWith('/my-dashboard') || route.path.startsWith('/dashboard') }"
-          >
-            Cat's Scoreboard
-          </RouterLink>
-          <RouterLink
-            to="/about"
-            class="nav-pill"
-            :class="{ active: route.path.startsWith('/about') || route.path.startsWith('/vision-mission') }"
-          >
-            About
-          </RouterLink>
+            <button
+              class="nav-pill explore-trigger"
+              type="button"
+              :aria-expanded="exploreOpen"
+              aria-haspopup="true"
+              @click="exploreOpen = !exploreOpen"
+            >
+              <span>Explore</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            <div class="explore-menu" role="menu">
+              <RouterLink
+                v-for="item in exploreItems"
+                :key="item.to"
+                class="explore-item"
+                :class="{ active: isExploreItemActive(item) }"
+                :to="item.to"
+                role="menuitem"
+              >
+                {{ item.label }}
+              </RouterLink>
+            </div>
+          </div>
         </nav>
       </div>
     </header>
@@ -119,21 +164,30 @@ const route = useRoute()
 }
 
 .top-nav {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 
 .nav-pill {
+  display: inline-flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
   text-decoration: none;
   font-weight: 700;
-  font-size: 1.08rem;
+  font-size: 1.3rem;
   color: #3d5d4f;
   border: 1px solid transparent;
   border-radius: 999px;
-  padding: 7px 12px;
+  padding: 0 22px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .nav-pill:hover {
@@ -146,6 +200,90 @@ const route = useRoute()
   border-color: #a9c8af;
   background: #e5f1e7;
   box-shadow: none;
+}
+
+.explore-nav {
+  position: relative;
+}
+
+.explore-nav::after {
+  position: absolute;
+  top: 100%;
+  left: -18px;
+  right: -18px;
+  height: 14px;
+  content: '';
+}
+
+.explore-trigger {
+  color: #3d5d4f;
+  font-size: 1.3rem;
+  font-weight: 700;
+  background: transparent;
+}
+
+.explore-nav.active .explore-trigger,
+.explore-nav.open .explore-trigger {
+  color: #17462f;
+  border-color: #a9c8af;
+  background: #e5f1e7;
+}
+
+.explore-trigger svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms ease;
+}
+
+.explore-nav.open .explore-trigger svg {
+  transform: rotate(180deg);
+}
+
+.explore-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 340px;
+  border: 2px solid #e5e7eb;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+  padding: 18px 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.explore-nav.open .explore-menu,
+.explore-nav:focus-within .explore-menu {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.explore-item {
+  display: block;
+  color: #374151;
+  text-decoration: none;
+  font-size: 1.18rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 18px 42px;
+  white-space: nowrap;
+}
+
+.explore-item:hover,
+.explore-item.active {
+  color: #047857;
+  background: #e8f8ef;
 }
 
 @media (max-width: 960px) {
@@ -178,8 +316,20 @@ const route = useRoute()
   }
 
   .nav-pill {
-    font-size: 0.95rem;
-    padding: 7px 10px;
+    min-height: 48px;
+    font-size: 1.05rem;
+    padding: 0 14px;
+  }
+
+  .explore-menu {
+    left: auto;
+    right: 0;
+    min-width: min(292px, calc(100vw - 32px));
+  }
+
+  .explore-item {
+    font-size: 1.08rem;
+    padding: 16px 26px;
   }
 }
 </style>

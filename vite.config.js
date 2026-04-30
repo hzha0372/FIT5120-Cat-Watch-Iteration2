@@ -9,6 +9,10 @@ import catScoreboardHandler from './api/cat-scoreboard.js'
 import catImpactScoreHandler from './api/cat-impact-score.js'
 import impactFormulaHandler from './api/impact-formula.js'
 import missionStatsHandler from './api/mission-stats.js'
+import epic3IdentifyHandler from './api/epic3-identify.js'
+import nativeSpeciesHandler from './api/native-species.js'
+import speciesInsightsHandler from './api/species-insights.js'
+import sightingReportsHandler from './api/sighting-reports.js'
 
 // Adapt function-style handler into Vite middleware.
 const createApiMiddleware = (handler) => async (req, res) => {
@@ -50,6 +54,10 @@ export default defineConfig({
         server.middlewares.use('/api/cat-impact-score', createApiMiddleware(catImpactScoreHandler))
         server.middlewares.use('/api/impact-formula', createApiMiddleware(impactFormulaHandler))
         server.middlewares.use('/api/mission-stats', createApiMiddleware(missionStatsHandler))
+        server.middlewares.use('/api/epic3-identify', createApiMiddleware(epic3IdentifyHandler))
+        server.middlewares.use('/api/native-species', createApiMiddleware(nativeSpeciesHandler))
+        server.middlewares.use('/api/species-insights', createApiMiddleware(speciesInsightsHandler))
+        server.middlewares.use('/api/sighting-reports', createApiMiddleware(sightingReportsHandler))
       },
     },
   ],
