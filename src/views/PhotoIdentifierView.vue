@@ -598,7 +598,12 @@ onUnmounted(() => {
         </span>
         <div class="identifier-title-row">
           <h1>Wildlife Species Identifier</h1>
-          <span class="feature-info-icon" aria-hidden="true">
+          <span
+            class="feature-info-icon"
+            tabindex="0"
+            aria-label="Several species supported."
+            data-tooltip="Several species supported."
+          >
             <svg viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="9" />
               <path d="M12 10v7" />
@@ -924,17 +929,51 @@ onUnmounted(() => {
 }
 
 .feature-info-icon {
+  position: relative;
   display: inline-grid;
   width: 24px;
   height: 24px;
   flex: 0 0 auto;
   place-items: center;
   color: #059669;
+  cursor: help;
 }
 
 .feature-info-icon svg {
   width: 22px;
   height: 22px;
+}
+
+.feature-info-icon::after {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 14px);
+  z-index: 20;
+  width: max-content;
+  max-width: min(220px, calc(100vw - 48px));
+  border: 2px solid #bbf7d0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+  color: #064e3b;
+  content: attr(data-tooltip);
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1;
+  opacity: 0;
+  padding: 10px 12px;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(-4px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+  white-space: nowrap;
+}
+
+.feature-info-icon:hover::after,
+.feature-info-icon:focus-visible::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
 }
 
 .hero-camera {
@@ -1732,6 +1771,18 @@ svg {
 }
 
 @media (max-width: 860px) {
+  .feature-info-icon::after {
+    top: calc(100% + 10px);
+    right: 0;
+    left: auto;
+    transform: translateY(-4px);
+  }
+
+  .feature-info-icon:hover::after,
+  .feature-info-icon:focus-visible::after {
+    transform: translateY(0);
+  }
+
   .api-note,
   .uploaded-card header,
   .community-pin {
