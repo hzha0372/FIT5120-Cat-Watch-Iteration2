@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { AUTH_CHANGED_EVENT, isAuthenticated, logout } from './utils/auth'
@@ -91,11 +91,11 @@ onUnmounted(() => {
           <img
             v-if="!logoMissing"
             src="/images/catwatch-logo.png"
-            alt="Cat Watch logo"
+            alt="Catwatcher logo"
             @error="logoMissing = true"
           />
           <div class="brand-text">
-            <h1>CAT WATCH</h1>
+            <h1>CATWATCHER</h1>
             <p>Protecting Wildlife, Responsible Pet Ownership</p>
           </div>
         </div>
@@ -379,3 +379,4 @@ onUnmounted(() => {
   }
 }
 </style>
+

@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+﻿import { createRouter, createWebHistory } from 'vue-router'
 import CatWatchMapView from '../views/CatWatchMapView.vue'
 import HomeView from '../views/HomeView.vue'
 import CatImpactScoreView from '../views/CatImpactScoreView.vue'
@@ -9,7 +9,7 @@ import LoginView from '../views/LoginView.vue'
 import GuardianLeaderboardView from '../views/GuardianLeaderboardView.vue'
 import { isAuthenticated } from '../utils/auth'
 
-// Central route table for the CatWatch single page app.
+// Central route table for the Catwatcher single page app.
 const routes = [
   {
     path: '/',
@@ -74,3 +74,4 @@ router.beforeEach((to) => {
 })
 
 export default router
+

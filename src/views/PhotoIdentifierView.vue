@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -588,7 +588,7 @@ onUnmounted(() => {
 <template>
   <main class="identifier-page">
     <div class="identifier-container">
-      <!-- Hero: compact green heading that matches the rest of the CatWatch visual system. -->
+      <!-- Hero: compact green heading that matches the rest of the Catwatcher visual system. -->
       <header class="identifier-hero">
         <span class="hero-camera" aria-hidden="true">
           <svg viewBox="0 0 24 24">
@@ -699,7 +699,7 @@ onUnmounted(() => {
             Upload File
           </button>
         </div>
-        <small>Supported formats: JPG, PNG, WEBP • Max size: 10MB</small>
+        <small>Supported formats: JPG, PNG, WEBP 鈥?Max size: 10MB</small>
       </section>
 
       <!-- Preview state: keeps the chosen/captured photo visible while analyzing and after results. -->
@@ -727,7 +727,7 @@ onUnmounted(() => {
       <section v-if="phase === 'analyzing'" class="analyzing-card">
         <div class="spinner" aria-hidden="true" />
         <h2>Analyzing Image...</h2>
-        <p>Checking species • Usually takes 2-5 seconds</p>
+        <p>Checking species 鈥?Usually takes 2-5 seconds</p>
       </section>
 
       <!-- Result state: switches between low, uncertain, and high confidence layouts. -->
@@ -769,7 +769,7 @@ onUnmounted(() => {
           <div v-if="possibleMatches.length" class="possible-matches">
             <p>Top possible matches for reference</p>
             <span v-for="match in possibleMatches" :key="`${match.scientific_name}-${match.confidence}`">
-              {{ match.common_name || match.scientific_name }} · {{ formatConfidence(match.confidence) }}
+              {{ match.common_name || match.scientific_name }} 路 {{ formatConfidence(match.confidence) }}
             </span>
           </div>
           <button type="button" @click="resetPhoto">Upload New Photo</button>
@@ -849,7 +849,7 @@ onUnmounted(() => {
             </p>
             <p class="muted-counts">
               {{ formatNumber(displayInsight.lgaSightingCount) }} records in
-              {{ displayInsight.lgaName || 'the local LGA' }} ·
+              {{ displayInsight.lgaName || 'the local LGA' }} 路
               {{ formatNumber(displayInsight.victoriaSightingCount) }} records across Victoria
             </p>
           </section>
@@ -897,7 +897,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* Page shell: green/teal theme aligned with the other CatWatch pages. */
+/* Page shell: green/teal theme aligned with the other Catwatcher pages. */
 .identifier-page {
   min-height: calc(100dvh - 101px);
   background:
@@ -1848,3 +1848,4 @@ svg {
   }
 }
 </style>
+

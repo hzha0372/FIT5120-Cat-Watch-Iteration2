@@ -1,6 +1,6 @@
-# CatWatch
+# Catwatcher
 
-CatWatch is a Vue and Vite single-page app for understanding local pet cat wildlife impact in Victoria.
+Catwatcher is a Vue and Vite single-page app for understanding local pet cat wildlife impact in Victoria.
 
 Core features:
 

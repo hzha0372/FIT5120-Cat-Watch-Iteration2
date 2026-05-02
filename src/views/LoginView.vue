@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { login } from '../utils/auth'
@@ -126,7 +126,7 @@ const handleRegister = async () => {
         <div class="hero-logo-wrap" aria-hidden="true">
           <img class="hero-logo" src="/images/catwatch-logo.png" alt="" />
         </div>
-        <p class="eyebrow">CatWatch Secure Access</p>
+        <p class="eyebrow">Catwatcher Secure Access</p>
         <h1>{{ heroTitle }}</h1>
         <p>{{ heroSubtitle }}</p>
       </article>
@@ -373,3 +373,4 @@ const handleRegister = async () => {
   }
 }
 </style>
+

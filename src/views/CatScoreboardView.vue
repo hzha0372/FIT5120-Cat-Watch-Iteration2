@@ -56,7 +56,7 @@ const fetchScoreboard = async () => {
     if (currentUser?.postcode) params.set('postcode', String(currentUser.postcode))
 
     if (!params.toString()) {
-      throw new Error('Please sign in again so CatWatch can load your registered postcode.')
+      throw new Error('Please sign in again so Catwatcher can load your registered postcode.')
     }
 
     const response = await fetch(`/api/cat-scoreboard-data?${params.toString()}`)
@@ -280,3 +280,4 @@ onMounted(fetchScoreboard)
 .updated-note { margin-top: 18px; color: var(--cw-muted); font-weight: 700; }
 @media (max-width: 1040px) { .scoreboard-layout { grid-template-columns: 1fr; } }
 </style>
+

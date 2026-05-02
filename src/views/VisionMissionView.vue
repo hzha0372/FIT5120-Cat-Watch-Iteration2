@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, ref } from 'vue'
 
 const loading = ref(false)
@@ -57,7 +57,7 @@ const valueCards = [
   },
   {
     title: 'Native species protection',
-    description: 'Victorian threatened species are the reason CatWatch exists.',
+    description: 'Victorian threatened species are the reason Catwatcher exists.',
     icon: 'Native',
     tone: 'cw-icon-emerald',
   },
@@ -82,7 +82,7 @@ onMounted(fetchMissionStats)
       <section class="cw-grid cw-grid-2 vision-grid">
         <article class="cw-card statement-card">
           <div class="statement-title">
-            <span class="cw-icon-tile cw-icon-emerald">◎</span>
+            <span class="cw-icon-tile cw-icon-emerald">Mission</span>
             <h2>Our Mission</h2>
           </div>
           <h3>
@@ -94,12 +94,12 @@ onMounted(fetchMissionStats)
             helping owners in suburban Victoria understand how their cats interact with locally threatened native
             species and giving them the tools to change their behaviour.
           </p>
-          <p>Scope update: CatWatch has expanded from an initial Melbourne focus to statewide Victoria coverage.</p>
+          <p>Scope update: Catwatcher has expanded from an initial Melbourne focus to statewide Victoria coverage.</p>
         </article>
 
         <article class="cw-card statement-card">
           <div class="statement-title">
-            <span class="cw-icon-tile cw-icon-violet">⊙</span>
+            <span class="cw-icon-tile cw-icon-violet">Vision</span>
             <h2>Our Vision</h2>
           </div>
           <h3>
@@ -113,7 +113,7 @@ onMounted(fetchMissionStats)
       </section>
 
       <section class="problem-section">
-        <h2>Why CatWatch Exists</h2>
+        <h2>Why Catwatcher Exists</h2>
         <p>
           Live database coverage: {{ usersTracked }} tracked users.
           <span v-if="updatedAtText"> Updated: {{ updatedAtText }}</span>
@@ -151,17 +151,17 @@ onMounted(fetchMissionStats)
         <p v-if="error" class="error-line">{{ error }}</p>
         <div class="action-grid">
           <article>
-            <span>📊</span>
+            <span>Data</span>
             <h3>Data transparency</h3>
-            <p>Every CatWatch number comes from database tables and source-backed calculations.</p>
+            <p>Every Catwatcher number comes from database tables and source-backed calculations.</p>
           </article>
           <article>
-            <span>🔍</span>
+            <span>Local</span>
             <h3>Local insight</h3>
             <p>Every score is specific to your postcode, not a broad national average.</p>
           </article>
           <article>
-            <span>🤝</span>
+            <span>Action</span>
             <h3>Behavioural change</h3>
             <p>We help owners reduce wildlife harm without choosing between their cat and conservation.</p>
           </article>
@@ -337,3 +337,4 @@ onMounted(fetchMissionStats)
   }
 }
 </style>
+

@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
@@ -28,35 +28,35 @@ const tools = [
     title: 'Interactive Risk Map',
     description: 'Explore geographic data showing cat impact zones across different regions',
     to: '/risk-map',
-    icon: '⌖',
+    icon: 'Map',
     tone: 'cw-icon-blue',
   },
   {
     title: 'Impact Score Calculator',
     description: 'Calculate and understand the environmental impact score for your area',
     to: '/impact-score',
-    icon: '↗',
+    icon: 'Impact',
     tone: 'cw-icon-purple',
   },
   {
     title: 'Cat Scoreboard',
     description: 'View rankings and compare impact metrics across different regions',
     to: '/cat-scoreboard',
-    icon: '♙',
+    icon: 'Score',
     tone: 'cw-icon-orange',
   },
   {
     title: 'Photo Identifier',
     description: 'Upload a wildlife photo, check supported species, and view database sighting history',
     to: '/photo-identifier',
-    icon: '▣',
+    icon: 'Photo',
     tone: 'cw-icon-emerald',
   },
   {
-    title: 'About CatWatch',
+    title: 'About Catwatcher',
     description: 'Learn about our vision to protect wildlife and promote responsible pet ownership',
     to: '/about',
-    icon: '◎',
+    icon: 'About',
     tone: 'cw-icon-blue',
   },
 ]
@@ -354,3 +354,4 @@ onMounted(fetchMissionStats)
   }
 }
 </style>
+
