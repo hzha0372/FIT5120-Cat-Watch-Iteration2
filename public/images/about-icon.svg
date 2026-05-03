@@ -1,0 +1,9 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="About icon">
+  <rect width="128" height="128" rx="18" fill="#ffffff"/>
+  <circle cx="64" cy="64" r="46" fill="#eff6ff" stroke="#111827" stroke-width="3"/>
+  <path d="M64 18a46 46 0 0 1 0 92" fill="none" stroke="#111827" stroke-width="3"/>
+  <path d="M18 64h92" stroke="#111827" stroke-width="3"/>
+  <ellipse cx="64" cy="64" rx="20" ry="46" fill="none" stroke="#111827" stroke-width="3"/>
+  <circle cx="64" cy="48" r="8" fill="#3b82f6"/>
+  <rect x="58" y="60" width="12" height="26" rx="6" fill="#0ea5e9"/>
+</svg>

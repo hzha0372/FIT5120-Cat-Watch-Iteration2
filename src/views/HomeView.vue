@@ -5,6 +5,7 @@ import { RouterLink } from 'vue-router'
 const loading = ref(false)
 const error = ref('')
 const missionStats = ref(null)
+const failedIcons = ref({})
 
 const formatCount = (value) => {
   const n = Number(value)
@@ -29,6 +30,7 @@ const tools = [
     description: 'Explore geographic data showing cat impact zones across different regions',
     to: '/risk-map',
     icon: 'Map',
+    iconSrc: '/images/risk-map-icon.svg',
     tone: 'cw-icon-blue',
   },
   {
@@ -36,6 +38,7 @@ const tools = [
     description: 'Calculate and understand the environmental impact score for your area',
     to: '/impact-score',
     icon: 'Impact',
+    iconSrc: '/images/impact-score-icon.svg',
     tone: 'cw-icon-purple',
   },
   {
@@ -43,6 +46,7 @@ const tools = [
     description: 'View rankings and compare impact metrics across different regions',
     to: '/cat-scoreboard',
     icon: 'Score',
+    iconSrc: '/images/scoreboard-icon.svg',
     tone: 'cw-icon-orange',
   },
   {
@@ -50,6 +54,7 @@ const tools = [
     description: 'Upload a wildlife photo, check supported species, and view database sighting history',
     to: '/photo-identifier',
     icon: 'Photo',
+    iconSrc: '/images/photo-identifier-icon.svg',
     tone: 'cw-icon-emerald',
   },
   {
@@ -57,6 +62,7 @@ const tools = [
     description: 'Learn about our vision to protect wildlife and promote responsible pet ownership',
     to: '/about',
     icon: 'About',
+    iconSrc: '/images/about-icon.svg',
     tone: 'cw-icon-blue',
   },
 ]
@@ -71,13 +77,17 @@ const fetchMissionStats = async () => {
     if (!response.ok) throw new Error(payload?.error || 'Failed to load database stats.')
     missionStats.value = payload
   } catch (err) {
-    error.value = err?.message || 'Failed to load database stats.'
+    error.value = 'Unable to load database stats right now.'
   } finally {
     loading.value = false
   }
 }
 
 onMounted(fetchMissionStats)
+
+const markIconFailed = (title) => {
+  failedIcons.value[title] = true
+}
 </script>
 
 <template>
@@ -104,19 +114,6 @@ onMounted(fetchMissionStats)
       </div>
     </section>
 
-    <section class="stats-band">
-      <div class="cw-container">
-        <p v-if="loading" class="status-line">Loading database stats...</p>
-        <p v-if="error" class="error-line">{{ error }}</p>
-        <div class="cw-grid cw-grid-4">
-          <article v-for="item in stats" :key="item.label" class="stat-item">
-            <strong>{{ item.value }}</strong>
-            <span>{{ item.label }}</span>
-          </article>
-        </div>
-      </div>
-    </section>
-
     <section class="tools-section">
       <div class="cw-container">
         <div class="cw-text-center section-heading">
@@ -133,7 +130,16 @@ onMounted(fetchMissionStats)
             class="tool-card cw-card"
             :to="tool.to"
           >
-            <span class="cw-icon-tile" :class="tool.tone">{{ tool.icon }}</span>
+            <span class="cw-icon-tile" :class="tool.tone">
+              <img
+                v-if="tool.iconSrc && !failedIcons[tool.title]"
+                :src="tool.iconSrc"
+                :alt="`${tool.title} icon`"
+                class="cw-icon-image"
+                @error="markIconFailed(tool.title)"
+              />
+              <template v-else>{{ tool.icon }}</template>
+            </span>
             <h3>{{ tool.title }}</h3>
             <p>{{ tool.description }}</p>
             <strong>Explore <span>→</span></strong>
@@ -292,6 +298,13 @@ onMounted(fetchMissionStats)
   margin-top: 18px;
   color: var(--cw-emerald);
   font-size: 1.05rem;
+}
+
+.cw-icon-image {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  display: block;
 }
 
 .cta-section {
