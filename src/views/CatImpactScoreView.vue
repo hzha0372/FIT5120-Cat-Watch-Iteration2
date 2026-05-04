@@ -57,12 +57,14 @@ const fetchImpactFormula = async () => {
   }
 }
 
-const suggestionLabel = (item) => {
+const shouldDisplayPostcode = (value) => /^\d{1,4}\b/.test(String(value || '').trim())
+
+const suggestionLabel = (item, includePostcode = shouldDisplayPostcode(postcodeInput.value)) => {
   const postcode = String(item?.postcode || '').trim()
   const name = String(item?.name || '').trim()
   if (!postcode) return name
   if (!name || name.toLowerCase() === postcode.toLowerCase()) return postcode
-  return [postcode, name].filter(Boolean).join(' ')
+  return includePostcode ? `${postcode} ${name}` : name
 }
 
 // Search suggestions come from suburb_demographics through the Impact Score page JS.
@@ -86,14 +88,18 @@ const lookupSuburbs = async () => {
 }
 
 const chooseSuggestion = (item) => {
+  const displayWithPostcode = shouldDisplayPostcode(postcodeInput.value)
   selectedSuggestion.value = item
-  postcodeInput.value = suggestionLabel(item)
+  postcodeInput.value = suggestionLabel(item, displayWithPostcode)
   suggestions.value = []
   error.value = ''
 }
 
 const resolvePostcode = async () => {
-  if (selectedSuggestion.value?.postcode && postcodeInput.value === suggestionLabel(selectedSuggestion.value)) {
+  if (
+    selectedSuggestion.value?.postcode &&
+    postcodeInput.value === suggestionLabel(selectedSuggestion.value, shouldDisplayPostcode(postcodeInput.value))
+  ) {
     return selectedSuggestion.value.postcode
   }
 
@@ -107,7 +113,7 @@ const resolvePostcode = async () => {
   }
   const match = payload.results[0]
   selectedSuggestion.value = match
-  postcodeInput.value = suggestionLabel(match)
+  postcodeInput.value = suggestionLabel(match, shouldDisplayPostcode(postcodeInput.value))
   return match.postcode
 }
 
@@ -140,13 +146,16 @@ watch(postcodeInput, () => {
   if (lookupTimer) clearTimeout(lookupTimer)
   if (
     selectedSuggestion.value?.postcode &&
-    postcodeInput.value === suggestionLabel(selectedSuggestion.value)
+    postcodeInput.value === suggestionLabel(selectedSuggestion.value, shouldDisplayPostcode(postcodeInput.value))
   ) {
     suggestions.value = []
     return
   }
 
-  if (!selectedSuggestion.value || postcodeInput.value !== suggestionLabel(selectedSuggestion.value)) {
+  if (
+    !selectedSuggestion.value ||
+    postcodeInput.value !== suggestionLabel(selectedSuggestion.value, shouldDisplayPostcode(postcodeInput.value))
+  ) {
     selectedSuggestion.value = null
   }
   lookupTimer = setTimeout(lookupSuburbs, 180)
