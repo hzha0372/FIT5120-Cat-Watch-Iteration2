@@ -15,6 +15,7 @@ const selectedSpecies = ref(null)
 const mapData = ref(null)
 const activeRiskFilter = ref('red')
 let suggestTimer = null
+let suggestRequestId = 0
 let skipNextSuggestionLookup = false
 
 const canSearch = computed(() => String(query.value || '').trim().length > 0)
@@ -94,6 +95,7 @@ const suggestionQuery = (item, includePostcode = shouldDisplayPostcode(query.val
 }
 
 const chooseSuggestion = (item) => {
+  suggestRequestId += 1
   selectedSuggestion.value = item
   skipNextSuggestionLookup = true
   query.value = suggestionQuery(item)
@@ -259,6 +261,7 @@ watch(query, (value) => {
   if (suggestTimer) clearTimeout(suggestTimer)
   if (skipNextSuggestionLookup) {
     skipNextSuggestionLookup = false
+    suggestRequestId += 1
     suggestions.value = []
     searchingSuggestions.value = false
     return
@@ -267,25 +270,29 @@ watch(query, (value) => {
     selectedSuggestion.value?.postcode &&
     text === suggestionQuery(selectedSuggestion.value, shouldDisplayPostcode(text))
   ) {
+    suggestRequestId += 1
     suggestions.value = []
     searchingSuggestions.value = false
     return
   }
   if (text.length < 2) {
+    suggestRequestId += 1
     suggestions.value = []
     return
   }
 
   suggestTimer = setTimeout(async () => {
+    const requestId = ++suggestRequestId
     searchingSuggestions.value = true
     try {
       const resp = await fetch(`/api/risk-map?action=suburbs&q=${encodeURIComponent(text)}&limit=8`)
       const payload = await resp.json()
+      if (requestId !== suggestRequestId || String(query.value || '').trim() !== text) return
       suggestions.value = normalizeSuggestionList(payload?.results, text)
     } catch {
-      suggestions.value = []
+      if (requestId === suggestRequestId) suggestions.value = []
     } finally {
-      searchingSuggestions.value = false
+      if (requestId === suggestRequestId) searchingSuggestions.value = false
     }
   }, 220)
 })

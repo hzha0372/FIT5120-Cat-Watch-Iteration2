@@ -14,6 +14,7 @@ const formulaLoading = ref(false)
 const formulaError = ref('')
 const formulaData = ref(null)
 let lookupTimer = null
+let lookupRequestId = 0
 const authed = ref(isAuthenticated())
 
 const normalizePostcode = (value) => String(value || '').match(/\d{4}/)?.[0] || ''
@@ -70,6 +71,7 @@ const suggestionLabel = (item, includePostcode = shouldDisplayPostcode(postcodeI
 // Search suggestions come from suburb_demographics through the Impact Score page JS.
 const lookupSuburbs = async () => {
   const q = postcodeInput.value.trim()
+  const requestId = ++lookupRequestId
   if (q.length < 2) {
     suggestions.value = []
     return
@@ -79,16 +81,18 @@ const lookupSuburbs = async () => {
   try {
     const response = await fetch(`/api/impact-score?action=suburbs&q=${encodeURIComponent(q)}&limit=6`)
     const payload = await response.json()
+    if (requestId !== lookupRequestId || postcodeInput.value.trim() !== q) return
     suggestions.value = payload?.results || []
   } catch {
-    suggestions.value = []
+    if (requestId === lookupRequestId) suggestions.value = []
   } finally {
-    lookupLoading.value = false
+    if (requestId === lookupRequestId) lookupLoading.value = false
   }
 }
 
 const chooseSuggestion = (item) => {
   const displayWithPostcode = shouldDisplayPostcode(postcodeInput.value)
+  lookupRequestId += 1
   selectedSuggestion.value = item
   postcodeInput.value = suggestionLabel(item, displayWithPostcode)
   suggestions.value = []
@@ -148,6 +152,7 @@ watch(postcodeInput, () => {
     selectedSuggestion.value?.postcode &&
     postcodeInput.value === suggestionLabel(selectedSuggestion.value, shouldDisplayPostcode(postcodeInput.value))
   ) {
+    lookupRequestId += 1
     suggestions.value = []
     return
   }

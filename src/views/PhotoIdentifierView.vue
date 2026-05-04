@@ -43,6 +43,7 @@ const savedSighting = ref(null)
 const pendingAutoAnalyze = ref(false)
 let suburbTimer = null
 let speciesTimer = null
+let suburbRequestId = 0
 
 // Use the top model prediction for display.
 const topPrediction = computed(() => identifyPayload.value?.predictions?.[0] || null)
@@ -308,6 +309,7 @@ const resetPhoto = () => {
 const loadSuburbSuggestions = async () => {
   // Load suburb suggestions from the Photo Identifier page JS.
   const q = postcodeInput.value.trim()
+  const requestId = ++suburbRequestId
   if (q.length < 2) {
     suburbSuggestions.value = []
     return
@@ -317,15 +319,17 @@ const loadSuburbSuggestions = async () => {
   try {
     const response = await fetch(`/api/photo-identifier?action=suburbs&q=${encodeURIComponent(q)}&limit=6`)
     const payload = await response.json()
+    if (requestId !== suburbRequestId || postcodeInput.value.trim() !== q) return
     suburbSuggestions.value = payload?.results || []
   } catch {
-    suburbSuggestions.value = []
+    if (requestId === suburbRequestId) suburbSuggestions.value = []
   } finally {
-    suburbLoading.value = false
+    if (requestId === suburbRequestId) suburbLoading.value = false
   }
 }
 
 const chooseSuburb = (item) => {
+  suburbRequestId += 1
   selectedSuburb.value = item
   postcodeInput.value = suburbLabel(item)
   activePostcode.value = item.postcode || ''
@@ -539,6 +543,7 @@ watch(postcodeInput, () => {
     selectedSuburb.value?.postcode &&
     postcodeInput.value === suburbLabel(selectedSuburb.value)
   ) {
+    suburbRequestId += 1
     activePostcode.value = selectedSuburb.value.postcode
     suburbSuggestions.value = []
     return
