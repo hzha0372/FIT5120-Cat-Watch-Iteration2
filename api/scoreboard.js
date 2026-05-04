@@ -740,9 +740,9 @@ const PASSWORD_DIGEST = 'sha256'
 
 let pool = null
 
-// Clean form text and normalize email values.
+// Clean form text while preserving email casing exactly as entered.
 const cleanText = (value) => String(value || '').trim()
-const cleanEmail = (value) => cleanText(value).toLowerCase()
+const cleanEmail = (value) => cleanText(value)
 
 // Read JSON bodies from Vite middleware or serverless requests.
 const readJsonBody = async (req) => {
@@ -858,7 +858,7 @@ const findUserByEmail = async (db, email) => {
   const result = await db.query(
     `SELECT id, name, email, TRIM(postcode) AS postcode
      FROM users
-     WHERE LOWER(TRIM(email)) = $1
+     WHERE TRIM(email) = $1
      ORDER BY id ASC
      LIMIT 1`,
     [email],
