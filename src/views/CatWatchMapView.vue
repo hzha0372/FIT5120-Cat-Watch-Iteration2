@@ -629,12 +629,6 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.risk-filter-btn.all {
-  border-color: #1f4f37;
-  background: #1f4f37;
-  color: #ffffff;
-}
-
 .risk-filter-btn.active {
   border-color: #9fb1a8;
   background: #f8fbf9;
