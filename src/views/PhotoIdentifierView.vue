@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -463,10 +463,6 @@ const analyzePhoto = async () => {
   }
 
   phase.value = 'analyzing'
-  const controller = new AbortController()
-
-  // Stop the request after 5 seconds.
-  const timeout = window.setTimeout(() => controller.abort(), 5000)
 
   try {
     // Build the multipart request expected by the model API.
@@ -478,7 +474,6 @@ const analyzePhoto = async () => {
     const response = await fetch('/api/photo-identifier', {
       method: 'POST',
       body: formData,
-      signal: controller.signal,
     })
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Species identification failed.')
@@ -507,13 +502,7 @@ const analyzePhoto = async () => {
     }
   } catch (error) {
     phase.value = 'idle'
-    if (error?.name === 'AbortError') {
-      errorMessage.value = 'Identification took longer than 5 seconds. Please try again with a clearer photo.'
-    } else {
-      errorMessage.value = error?.message || 'Species identification failed.'
-    }
-  } finally {
-    window.clearTimeout(timeout)
+    errorMessage.value = error?.message || 'Species identification failed.'
   }
 }
 
@@ -699,7 +688,7 @@ onUnmounted(() => {
             Upload File
           </button>
         </div>
-        <small>Supported formats: JPG, PNG, WEBP 鈥?Max size: 10MB</small>
+        <small>Supported formats: JPG, PNG, WEBP - Max size: 10MB</small>
       </section>
 
       <!-- Preview state: keeps the chosen/captured photo visible while analyzing and after results. -->
@@ -723,11 +712,11 @@ onUnmounted(() => {
 
       <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
-      <!-- Loading state: shown while the 5-second Epic 3 request is in flight. -->
+      <!-- Loading state: shown while the Epic 3 request is in flight. -->
       <section v-if="phase === 'analyzing'" class="analyzing-card">
         <div class="spinner" aria-hidden="true" />
         <h2>Analyzing Image...</h2>
-        <p>Checking species 鈥?Usually takes 2-5 seconds</p>
+        <p>Checking species against the recognition model. This may take a moment.</p>
       </section>
 
       <!-- Result state: switches between low, uncertain, and high confidence layouts. -->
@@ -769,7 +758,7 @@ onUnmounted(() => {
           <div v-if="possibleMatches.length" class="possible-matches">
             <p>Top possible matches for reference</p>
             <span v-for="match in possibleMatches" :key="`${match.scientific_name}-${match.confidence}`">
-              {{ match.common_name || match.scientific_name }} 路 {{ formatConfidence(match.confidence) }}
+              {{ match.common_name || match.scientific_name }} - {{ formatConfidence(match.confidence) }}
             </span>
           </div>
           <button type="button" @click="resetPhoto">Upload New Photo</button>
@@ -849,7 +838,7 @@ onUnmounted(() => {
             </p>
             <p class="muted-counts">
               {{ formatNumber(displayInsight.lgaSightingCount) }} records in
-              {{ displayInsight.lgaName || 'the local LGA' }} 路
+              {{ displayInsight.lgaName || 'the local LGA' }} -
               {{ formatNumber(displayInsight.victoriaSightingCount) }} records across Victoria
             </p>
           </section>

@@ -28,10 +28,6 @@ photoIdentifierModelHandler = async function(req, res) {
     return
   }
 
-  const controller = new AbortController()
-  // Requirement: return within 5 seconds.
-  const timeout = setTimeout(() => controller.abort(), 5000)
-
   try {
     // Forward the raw request stream and original multipart content type.
     const response = await fetch(EPIC3_IDENTIFY_URL, {
@@ -41,18 +37,11 @@ photoIdentifierModelHandler = async function(req, res) {
       },
       body: req,
       duplex: 'half',
-      signal: controller.signal,
     })
     const payload = await readJsonLikeResponse(response)
     res.status(response.status).json(payload)
   } catch (error) {
-    const message =
-      error?.name === 'AbortError'
-        ? 'Identification took longer than 5 seconds.'
-        : error?.message || 'Species identification failed.'
-    res.status(error?.name === 'AbortError' ? 504 : 502).json({ error: message })
-  } finally {
-    clearTimeout(timeout)
+    res.status(502).json({ error: error?.message || 'Species identification failed.' })
   }
 }
 
@@ -151,7 +140,7 @@ photoIdentifierSuburbsHandler = async function(req, res) {
       if (!postcode || !name) continue
       // Some source rows use the postcode as the suburb name.
       const hasRealName = name.toLowerCase() !== postcode.toLowerCase()
-      const label = isPostcode && hasRealName ? `${postcode} · ${name}` : hasRealName ? name : postcode
+      const label = isPostcode && hasRealName ? `${postcode} - ${name}` : hasRealName ? name : postcode
       const displayQuery = hasRealName ? `${postcode} ${name}` : postcode
       if (!dedup.has(postcode)) {
         dedup.set(postcode, {
