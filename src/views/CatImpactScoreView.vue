@@ -87,7 +87,7 @@ const lookupSuburbs = async () => {
 
   lookupLoading.value = true
   try {
-    const response = await fetch(`/api/impact-score?action=suburbs&q=${encodeURIComponent(q)}&limit=6`)
+    const response = await fetch(`/api/impact-score?action=suburbs&q=${encodeURIComponent(q)}&limit=30`)
     const payload = await response.json()
     if (requestId !== lookupRequestId || postcodeInput.value.trim() !== q) return
     suggestions.value = payload?.results || []

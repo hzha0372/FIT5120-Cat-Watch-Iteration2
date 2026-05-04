@@ -71,7 +71,8 @@ def main() -> None:
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS suburb_scores (
-                postcode CHAR(4) PRIMARY KEY REFERENCES suburb_demographics(postcode),
+                postcode CHAR(4) PRIMARY KEY,
+                suburb_name VARCHAR(120) NOT NULL,
                 containment_gap_raw DECIMAL(5,2) NOT NULL DEFAULT 0,
                 containment_gap_score DECIMAL(5,2) NOT NULL DEFAULT 0,
                 wildlife_density_raw INTEGER NOT NULL DEFAULT 0,
@@ -139,7 +140,7 @@ def main() -> None:
                   (postcode, suburb_name, centroid_lat, centroid_lng,
                    household_count, population, lga_name, state)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (postcode) DO NOTHING
+                ON CONFLICT (postcode, suburb_name) DO NOTHING
                 """,
                 (
                     row["postcode"],
@@ -182,12 +183,27 @@ def main() -> None:
 
         cur.execute(
             """
-            SELECT postcode, household_count
+            SELECT postcode, COALESCE(SUM(household_count), 0) AS household_count
             FROM suburb_demographics
             WHERE state = 'VIC'
+            GROUP BY postcode
             """
         )
         suburb_rows = cur.fetchall()
+        cur.execute(
+            """
+            SELECT DISTINCT ON (postcode)
+              postcode,
+              suburb_name
+            FROM suburb_demographics
+            WHERE state = 'VIC'
+            ORDER BY postcode, suburb_name
+            """
+        )
+        suburb_label_by_postcode = {
+            postcode.strip(): suburb_name
+            for postcode, suburb_name in cur.fetchall()
+        }
 
         ownership_rate = Decimal("0.34")
         outdoor_rate = Decimal("0.71")
@@ -221,6 +237,7 @@ def main() -> None:
             score_rows.append(
                 (
                     pc,
+                    suburb_label_by_postcode.get(pc, pc),
                     containment_gap_raw,
                     containment_gap_score,
                     wildlife_raw,
@@ -234,11 +251,12 @@ def main() -> None:
         cur.executemany(
             """
             INSERT INTO suburb_scores
-              (postcode, containment_gap_raw, containment_gap_score,
+              (postcode, suburb_name, containment_gap_raw, containment_gap_score,
                wildlife_density_raw, wildlife_density_score,
                cat_density_raw, cat_density_score, total_impact_score, last_updated)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,NOW())
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())
             ON CONFLICT (postcode) DO UPDATE SET
+              suburb_name = EXCLUDED.suburb_name,
               containment_gap_raw = EXCLUDED.containment_gap_raw,
               containment_gap_score = EXCLUDED.containment_gap_score,
               wildlife_density_raw = EXCLUDED.wildlife_density_raw,
@@ -263,8 +281,14 @@ def main() -> None:
                   ORDER BY ss2.total_impact_score DESC
                 ) AS pr
               FROM suburb_scores ss2
-              JOIN suburb_demographics sd ON ss2.postcode = sd.postcode
-              WHERE sd.state = 'VIC'
+              JOIN (
+                SELECT DISTINCT ON (postcode)
+                  postcode,
+                  lga_name
+                FROM suburb_demographics
+                WHERE state = 'VIC'
+                ORDER BY postcode, suburb_name
+              ) sd ON ss2.postcode = sd.postcode
             ) sub
             WHERE ss.postcode = sub.postcode
             """

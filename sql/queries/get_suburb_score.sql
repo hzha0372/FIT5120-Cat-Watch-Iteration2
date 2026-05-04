@@ -18,6 +18,15 @@ SELECT
     ss.lga_percentile_rank,
     ss.last_updated
 FROM suburb_scores AS ss
-JOIN suburb_demographics AS sd
+JOIN (
+    SELECT DISTINCT ON (postcode)
+        postcode,
+        suburb_name,
+        lga_name,
+        household_count
+    FROM suburb_demographics
+    WHERE state = 'VIC'
+    ORDER BY postcode, suburb_name
+) AS sd
     ON sd.postcode = ss.postcode
 WHERE ss.postcode = :'postcode';

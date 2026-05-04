@@ -76,8 +76,10 @@ const normalizeSuggestionList = (items, rawQuery) => {
     .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')))
     .filter((item) => {
       const postcode = String(item?.postcode || '').trim()
-      if (!postcode || seen.has(postcode)) return false
-      seen.add(postcode)
+      const name = String(item?.name || '').trim().toLowerCase()
+      const key = `${postcode}-${name}`
+      if (!postcode || seen.has(key)) return false
+      seen.add(key)
       return true
     })
     .slice(0, 8)
@@ -206,7 +208,7 @@ const loadMapData = async () => {
 
     if (!picked && query.value.trim()) {
       const lookupQuery = postcodeInput || query.value
-      const resp = await fetch(`/api/risk-map?action=suburbs&q=${encodeURIComponent(lookupQuery)}&limit=8`)
+      const resp = await fetch(`/api/risk-map?action=suburbs&q=${encodeURIComponent(lookupQuery)}&limit=30`)
       const payload = await resp.json()
       const refined = normalizeSuggestionList(payload?.results, lookupQuery)
       picked = refined[0] || null
@@ -293,7 +295,7 @@ watch(query, (value) => {
     const requestId = ++suggestRequestId
     searchingSuggestions.value = true
     try {
-      const resp = await fetch(`/api/risk-map?action=suburbs&q=${encodeURIComponent(text)}&limit=8`)
+      const resp = await fetch(`/api/risk-map?action=suburbs&q=${encodeURIComponent(text)}&limit=30`)
       const payload = await resp.json()
       if (requestId !== suggestRequestId || String(query.value || '').trim() !== text) return
       suggestions.value = normalizeSuggestionList(payload?.results, text)

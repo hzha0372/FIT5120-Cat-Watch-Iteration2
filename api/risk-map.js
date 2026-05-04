@@ -574,7 +574,7 @@ const getPool = () => {
 riskMapSuburbsHandler = async function(req, res) {
   try {
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : ''
-    const limit = Math.max(1, Math.min(12, Number(req.query.limit) || 8))
+    const limit = Math.max(1, Math.min(80, Number(req.query.limit) || 20))
 
     if (!q) {
       res.status(200).json({ results: [] })
@@ -621,8 +621,9 @@ riskMapSuburbsHandler = async function(req, res) {
       const hasRealName = name.toLowerCase() !== postcode.toLowerCase()
       const label = isPostcode && hasRealName ? `${postcode} · ${name}` : hasRealName ? name : postcode
       const displayQuery = hasRealName ? `${postcode} ${name}` : postcode
-      if (!dedup.has(postcode)) {
-        dedup.set(postcode, {
+      const key = `${postcode}-${name.toLowerCase()}`
+      if (!dedup.has(key)) {
+        dedup.set(key, {
           id: `${postcode}-${name}`,
           name,
           postcode,

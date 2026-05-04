@@ -17,8 +17,8 @@ ORDER BY row_count DESC, state_conservation;
 
 SELECT
     sc.postcode,
-    sd.suburb_name,
-    sd.lga_name,
+    MIN(sd.suburb_name) AS suburb_name,
+    MIN(sd.lga_name) AS lga_name,
     COUNT(*) AS threatened_record_count,
     COUNT(DISTINCT sc.scientific_name) AS distinct_scientific_species,
     MIN(sc.cached_at) AS earliest_cached_at,
@@ -32,9 +32,7 @@ WHERE sc.state_conservation IN (
     'Critically Endangered'
 )
 GROUP BY
-    sc.postcode,
-    sd.suburb_name,
-    sd.lga_name
+    sc.postcode
 ORDER BY
     threatened_record_count DESC,
     distinct_scientific_species DESC,

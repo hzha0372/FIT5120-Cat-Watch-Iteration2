@@ -16,9 +16,16 @@ SELECT
     ss.lga_percentile_rank,
     ss.last_updated
 FROM suburb_scores AS ss
-JOIN suburb_demographics AS sd
+JOIN (
+    SELECT DISTINCT ON (postcode)
+        postcode,
+        suburb_name,
+        lga_name
+    FROM suburb_demographics
+    WHERE state = 'VIC'
+    ORDER BY postcode, suburb_name
+) AS sd
     ON sd.postcode = ss.postcode
-WHERE sd.state = 'VIC'
 ORDER BY
     ss.total_impact_score DESC,
     ss.wildlife_density_raw DESC,

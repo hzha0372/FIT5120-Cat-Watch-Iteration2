@@ -57,7 +57,15 @@ SELECT
     ss.cat_density_raw,
     ss.total_impact_score
 FROM suburb_scores AS ss
-JOIN suburb_demographics AS sd
+JOIN (
+    SELECT DISTINCT ON (postcode)
+        postcode,
+        suburb_name,
+        lga_name
+    FROM suburb_demographics
+    WHERE state = 'VIC'
+    ORDER BY postcode, suburb_name
+) AS sd
     ON sd.postcode = ss.postcode
 WHERE ss.postcode IN ('3000', '3029', '3220', '3550')
 ORDER BY ss.postcode;
