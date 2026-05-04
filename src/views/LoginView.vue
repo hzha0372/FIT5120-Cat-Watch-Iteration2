@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { login } from '../utils/auth'
-import { authFallback } from '../utils/localAuthFallback'
 
 const route = useRoute()
 const router = useRouter()
@@ -43,24 +42,39 @@ const switchMode = (nextMode) => {
   success.value = ''
 }
 
-// Send login/register requests through the shared Scoreboard auth action.
-const postAuth = async (body) => {
+const readJsonResponse = async (response) => {
   try {
-    const response = await fetch('/api/scoreboard?action=auth', {
+    return await response.json()
+  } catch {
+    return {}
+  }
+}
+
+// Send login/register requests through the real database auth API.
+const postAuth = async (body) => {
+  let response = null
+  let payload = null
+
+  try {
+    response = await fetch('/api/scoreboard?action=auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    const payload = await response.json()
-    if (!response.ok) {
-      // Fall back only for backend/server outages.
-      if (response.status >= 500) return authFallback(body)
-      throw new Error(payload?.error || 'Authentication failed.')
-    }
-    return payload
-  } catch {
-    return authFallback(body)
+    payload = await readJsonResponse(response)
+  } catch (err) {
+    throw new Error(
+      err?.message
+        ? `Unable to reach the database auth API: ${err.message}`
+        : 'Unable to reach the database auth API.',
+    )
   }
+
+  if (!response.ok) {
+    throw new Error(payload?.error || `Authentication failed with status ${response.status}.`)
+  }
+
+  return payload
 }
 
 // Log in and save the returned user profile in the browser session.
@@ -83,13 +97,13 @@ const handleLogin = async () => {
     const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     await router.replace(redirectTo)
   } catch (err) {
-    error.value = 'Unable to sign in right now. Please try again later.'
+    error.value = err?.message || 'Unable to sign in right now. Please try again later.'
   } finally {
     loading.value = false
   }
 }
 
-// Register a new database account and continue as the new user.
+// Register a new database account, then require a normal login before continuing.
 const handleRegister = async () => {
   error.value = ''
   success.value = ''
@@ -109,19 +123,23 @@ const handleRegister = async () => {
 
   loading.value = true
   try {
-    const payload = await postAuth({
+    await postAuth({
       action: 'register',
       name: registerName.value,
       email: registerEmail.value,
       password: registerPassword.value,
       postcode: registerPostcode.value,
     })
-    login(payload.user)
-    success.value = 'Account created.'
-    const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
-    await router.replace(redirectTo)
+    username.value = registerEmail.value.trim()
+    password.value = ''
+    registerName.value = ''
+    registerEmail.value = ''
+    registerPassword.value = ''
+    registerPostcode.value = ''
+    mode.value = 'login'
+    success.value = 'Account created. Please sign in to continue.'
   } catch (err) {
-    error.value = 'Unable to create account right now. Please try again later.'
+    error.value = err?.message || 'Unable to create account right now. Please try again later.'
   } finally {
     loading.value = false
   }

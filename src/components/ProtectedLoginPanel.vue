@@ -1,7 +1,6 @@
 <script setup>
 import { ref } from 'vue'
 import { login } from '../utils/auth'
-import { authFallback } from '../utils/localAuthFallback'
 
 defineProps({
   title: {
@@ -21,7 +20,15 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
-// Sign in from a protected-page inline panel through the shared Scoreboard auth action.
+const readJsonResponse = async (response) => {
+  try {
+    return await response.json()
+  } catch {
+    return {}
+  }
+}
+
+// Sign in from a protected-page inline panel through the real database auth API.
 const handleLogin = async () => {
   error.value = ''
   if (!username.value.trim() || !password.value.trim()) {
@@ -31,9 +38,11 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
+    let response = null
     let payload = null
+
     try {
-      const response = await fetch('/api/scoreboard?action=auth', {
+      response = await fetch('/api/scoreboard?action=auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -42,27 +51,19 @@ const handleLogin = async () => {
           password: password.value,
         }),
       })
-      const body = await response.json()
-      if (!response.ok) {
-        if (response.status >= 500) {
-          payload = authFallback({
-            action: 'login',
-            email: username.value,
-            password: password.value,
-          })
-        } else {
-          throw new Error(body?.error || 'Unable to sign in.')
-        }
-      } else {
-        payload = body
-      }
-    } catch {
-      payload = authFallback({
-        action: 'login',
-        email: username.value,
-        password: password.value,
-      })
+      payload = await readJsonResponse(response)
+    } catch (err) {
+      throw new Error(
+        err?.message
+          ? `Unable to reach the database auth API: ${err.message}`
+          : 'Unable to reach the database auth API.',
+      )
     }
+
+    if (!response.ok) {
+      throw new Error(payload?.error || `Unable to sign in. Status ${response.status}.`)
+    }
+
     login(payload.user)
     emit('success')
   } catch (err) {

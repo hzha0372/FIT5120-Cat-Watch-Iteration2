@@ -77,8 +77,14 @@ let pool = null
 const getPool = () => {
   if (pool) return pool
   const hasUrl = Boolean(process.env.DATABASE_URL)
-
-  const config = hasUrl
+  const hasPgVars = Boolean(
+    process.env.PGHOST ||
+      process.env.PGPORT ||
+      process.env.PGUSER ||
+      process.env.PGPASSWORD ||
+      process.env.PGDATABASE,
+  )
+  const config = hasUrl && !hasPgVars
     ? { connectionString: process.env.DATABASE_URL }
     : {
         host: process.env.PGHOST || DEFAULT_DB_CONFIG.host,
@@ -88,7 +94,7 @@ const getPool = () => {
         database: process.env.PGDATABASE || DEFAULT_DB_CONFIG.database,
       }
 
-  if (process.env.NODE_ENV === 'production' && hasUrl) {
+  if (process.env.NODE_ENV === 'production' && hasUrl && !hasPgVars) {
     config.ssl = { rejectUnauthorized: false }
   }
 
@@ -187,7 +193,14 @@ let pool = null
 const getPool = () => {
   if (pool) return pool
   const hasUrl = Boolean(process.env.DATABASE_URL)
-  const config = hasUrl
+  const hasPgVars = Boolean(
+    process.env.PGHOST ||
+      process.env.PGPORT ||
+      process.env.PGUSER ||
+      process.env.PGPASSWORD ||
+      process.env.PGDATABASE,
+  )
+  const config = hasUrl && !hasPgVars
     ? { connectionString: process.env.DATABASE_URL }
     : {
         host: process.env.PGHOST || DEFAULT_DB_CONFIG.host,
@@ -197,7 +210,7 @@ const getPool = () => {
         database: process.env.PGDATABASE || DEFAULT_DB_CONFIG.database,
       }
 
-  if (process.env.NODE_ENV === 'production' && hasUrl) {
+  if (process.env.NODE_ENV === 'production' && hasUrl && !hasPgVars) {
     config.ssl = { rejectUnauthorized: false }
   }
 
@@ -284,7 +297,14 @@ let pool = null
 const getPool = () => {
   if (pool) return pool
   const hasUrl = Boolean(process.env.DATABASE_URL)
-  const config = hasUrl
+  const hasPgVars = Boolean(
+    process.env.PGHOST ||
+      process.env.PGPORT ||
+      process.env.PGUSER ||
+      process.env.PGPASSWORD ||
+      process.env.PGDATABASE,
+  )
+  const config = hasUrl && !hasPgVars
     ? { connectionString: process.env.DATABASE_URL }
     : {
         host: process.env.PGHOST || DEFAULT_DB_CONFIG.host,
@@ -294,7 +314,7 @@ const getPool = () => {
         database: process.env.PGDATABASE || DEFAULT_DB_CONFIG.database,
       }
 
-  if (process.env.NODE_ENV === 'production' && hasUrl) {
+  if (process.env.NODE_ENV === 'production' && hasUrl && !hasPgVars) {
     config.ssl = { rejectUnauthorized: false }
   }
 
@@ -515,7 +535,14 @@ let pool = null
 const getPool = () => {
   if (pool) return pool
   const hasUrl = Boolean(process.env.DATABASE_URL)
-  const config = hasUrl
+  const hasPgVars = Boolean(
+    process.env.PGHOST ||
+      process.env.PGPORT ||
+      process.env.PGUSER ||
+      process.env.PGPASSWORD ||
+      process.env.PGDATABASE,
+  )
+  const config = hasUrl && !hasPgVars
     ? { connectionString: process.env.DATABASE_URL }
     : {
         host: process.env.PGHOST || DEFAULT_DB_CONFIG.host,
@@ -525,7 +552,7 @@ const getPool = () => {
         database: process.env.PGDATABASE || DEFAULT_DB_CONFIG.database,
       }
 
-  if (process.env.NODE_ENV === 'production' && hasUrl) {
+  if (process.env.NODE_ENV === 'production' && hasUrl && !hasPgVars) {
     config.ssl = { rejectUnauthorized: false }
   }
 
@@ -696,7 +723,14 @@ const toInt = (v, fallback = 0) => {
 const getPool = () => {
   if (pool) return pool
   const hasUrl = Boolean(process.env.DATABASE_URL)
-  const config = hasUrl
+  const hasPgVars = Boolean(
+    process.env.PGHOST ||
+      process.env.PGPORT ||
+      process.env.PGUSER ||
+      process.env.PGPASSWORD ||
+      process.env.PGDATABASE,
+  )
+  const config = hasUrl && !hasPgVars
     ? { connectionString: process.env.DATABASE_URL }
     : {
         host: process.env.PGHOST || DEFAULT_DB_CONFIG.host,
@@ -706,7 +740,7 @@ const getPool = () => {
         database: process.env.PGDATABASE || DEFAULT_DB_CONFIG.database,
       }
 
-  if (process.env.NODE_ENV === 'production' && hasUrl) {
+  if (process.env.NODE_ENV === 'production' && hasUrl && !hasPgVars) {
     config.ssl = { rejectUnauthorized: false }
   }
 
