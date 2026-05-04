@@ -3,6 +3,14 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { AUTH_CHANGED_EVENT, isAuthenticated, logout } from './utils/auth'
 
+/*
+  App Shell Responsibilities
+  - Renders the global header/navigation that wraps every page in the app.
+  - Syncs auth state with storage/custom events so Login/Logout state is always accurate.
+  - Controls Explore menu open/close behavior and active link highlighting.
+  - Handles logout redirects when the current route requires authentication.
+*/
+
 // Track logo loading so the header remains clean if the image asset is unavailable.
 const logoMissing = ref(false)
 const route = useRoute()

@@ -3,6 +3,14 @@ import { computed, onMounted, ref, watch } from 'vue'
 import ProtectedLoginPanel from '../components/ProtectedLoginPanel.vue'
 import { isAuthenticated } from '../utils/auth'
 
+/*
+  Cat Impact Score View Responsibilities
+  - Protects score content behind login and shows an inline auth gate when needed.
+  - Resolves user suburb/postcode input into a normalized Victorian postcode.
+  - Loads formula metadata and calculated score payload from /api/impact-score.
+  - Renders risk-level summary, score components, and nearby ranking context.
+*/
+
 const postcodeInput = ref('')
 const selectedSuggestion = ref(null)
 const suggestions = ref([])

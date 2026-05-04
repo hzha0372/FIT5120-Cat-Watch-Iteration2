@@ -3,6 +3,12 @@ import { Pool } from 'pg'
 // About Us page JS.
 // Owns mission statistics used by VisionMissionView.vue and the Home page summary.
 // Vercel entry: /api/about-us.
+/*
+  Module Notes
+  - This endpoint aggregates read-only dashboard counters from multiple tables.
+  - The response is intentionally compact and UI-oriented for Home/Vision pages.
+  - DB credentials can come from DATABASE_URL or explicit PG* environment variables.
+*/
 /* eslint-env node */
 /* global process */
 

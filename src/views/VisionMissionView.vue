@@ -1,6 +1,13 @@
 ﻿<script setup>
 import { computed, onMounted, ref } from 'vue'
 
+/*
+  Vision & Mission View Responsibilities
+  - Presents product purpose, conservation rationale, and value statements.
+  - Pulls live mission coverage counters from /api/about-us to ground narrative in data.
+  - Keeps strategic messaging and operational metrics in one readable page structure.
+*/
+
 const loading = ref(false)
 const error = ref('')
 const data = ref(null)

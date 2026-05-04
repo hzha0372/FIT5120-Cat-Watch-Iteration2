@@ -3,6 +3,14 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { login } from '../utils/auth'
 
+/*
+  Login View Responsibilities
+  - Supports both sign-in and account registration in one UI flow.
+  - Redirects users back to protected pages via the redirect query parameter.
+  - Sends auth requests to /api/scoreboard?action=auth and persists safe user profile data locally.
+  - Provides explicit validation and user-friendly error/success feedback states.
+*/
+
 const route = useRoute()
 const router = useRouter()
 const mode = ref('login')

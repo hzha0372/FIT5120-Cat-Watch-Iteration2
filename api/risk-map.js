@@ -3,6 +3,12 @@ import { Pool } from 'pg'
 // Risk Map page JS.
 // Owns map data and suburb suggestions used by CatWatchMapView.vue.
 // Vercel entry: /api/risk-map, with action=suburbs for the search dropdown.
+/*
+  Module Notes
+  - Serves both suburb suggestion lookup and full risk-map dataset generation.
+  - Merges location, schedule, species, and reserve context into a single payload.
+  - Applies fallback strategies to keep search useful when specific postcode data is sparse.
+*/
 let riskMapDataHandler
 {
 /* eslint-env node */

@@ -3,6 +3,14 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getCurrentUser } from '../utils/auth'
 
+/*
+  Cat Scoreboard View Responsibilities
+  - Serves two route modes: full scoreboard dashboard and leaderboard-only screen.
+  - Fetches user-scoped metrics (streak, guardian contribution, ranking) from /api/scoreboard.
+  - Fetches public leaderboard snapshots via action=leaderboard.
+  - Keeps both experiences in one component while preserving route-specific UI behavior.
+*/
+
 const route = useRoute()
 const leaderboardOnly = computed(() => route.path.startsWith('/guardian/leaderboard'))
 const loading = ref(false)

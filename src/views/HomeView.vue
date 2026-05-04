@@ -2,6 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
+/*
+  Home View Responsibilities
+  - Presents the landing experience and primary feature entry points.
+  - Loads high-level mission coverage metrics from /api/about-us for dashboard context.
+  - Renders icon-backed feature cards and gracefully falls back when an icon asset fails.
+*/
+
 const loading = ref(false)
 const error = ref('')
 const missionStats = ref(null)

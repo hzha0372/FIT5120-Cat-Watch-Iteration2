@@ -4,6 +4,12 @@ import { Pool } from 'pg'
 // Scoreboard page JS.
 // Owns personal scoreboard metrics, guardian leaderboard, roaming logs, and protected-page auth.
 // Vercel entry: /api/scoreboard, with action=leaderboard, action=log, or action=auth for supporting sections.
+/*
+  Module Notes
+  - Centralizes multiple scoreboard-related actions behind one API contract.
+  - Includes authentication handlers plus community analytics reads/writes.
+  - Keeps auth hashing and scoreboard calculations in the same service boundary for consistency.
+*/
 let scoreboardDataHandler
 {
 /* eslint-env node */

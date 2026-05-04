@@ -2,6 +2,14 @@
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import L from 'leaflet'
 
+/*
+  Cat Watch Map View Responsibilities
+  - Accepts suburb/postcode search input and resolves it through /api/risk-map actions.
+  - Loads map-ready risk data and species records, then renders markers with Leaflet.
+  - Applies client-side risk filters (high/medium/low/all) without re-requesting data.
+  - Manages map lifecycle (init, marker redraw, cleanup) to avoid memory leaks.
+*/
+
 const mapEl = ref(null)
 const map = ref(null)
 const speciesLayer = ref(null)

@@ -1,6 +1,14 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
+/*
+  Photo Identifier View Responsibilities
+  - Supports camera capture and file-upload image workflows for species identification.
+  - Coordinates postcode/suburb selection, species confirmation, and insight retrieval.
+  - Calls /api/photo-identifier actions for model inference, options, insights, and report saves.
+  - Tracks multi-step UI phases to guide users from photo input to confirmed sighting output.
+*/
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 
 // Store upload input and live camera state.

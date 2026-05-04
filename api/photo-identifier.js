@@ -3,6 +3,12 @@ import { Pool } from 'pg'
 // Photo Identifier page JS.
 // Owns photo identification, species options, suburb lookup, sighting insights, confirmed reports, and predation stats.
 // Vercel entry: /api/photo-identifier, with action values for supporting sections.
+/*
+  Module Notes
+  - Combines model forwarding and local database-backed helper actions in one endpoint.
+  - Exposes deterministic JSON outputs for each action to simplify frontend state handling.
+  - Isolates third-party model errors and converts them into predictable API responses.
+*/
 let photoIdentifierModelHandler
 {
 /* eslint-env node */

@@ -3,6 +3,12 @@ import { Pool } from 'pg'
 // Impact Score page JS.
 // Owns score data, formula weights, and suburb suggestions used by CatImpactScoreView.vue.
 // Vercel entry: /api/impact-score, with action=formula or action=suburbs for supporting sections.
+/*
+  Module Notes
+  - Acts as a multi-action endpoint: score calculation, formula metadata, and suburb search.
+  - Computes weighted risk components and ranking context using DB-backed source tables.
+  - Keeps scoring rules centralized so frontend only renders returned values.
+*/
 let impactScoreDataHandler
 {
 /* eslint-env node */
