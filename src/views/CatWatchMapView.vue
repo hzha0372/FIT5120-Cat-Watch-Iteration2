@@ -15,6 +15,7 @@ const selectedSpecies = ref(null)
 const mapData = ref(null)
 const activeRiskFilter = ref('red')
 let suggestTimer = null
+let skipNextSuggestionLookup = false
 
 const canSearch = computed(() => String(query.value || '').trim().length > 0)
 const visibleSpecies = computed(() => {
@@ -93,8 +94,9 @@ const suggestionQuery = (item, includePostcode = shouldDisplayPostcode(query.val
 }
 
 const chooseSuggestion = (item) => {
-  query.value = suggestionQuery(item)
   selectedSuggestion.value = item
+  skipNextSuggestionLookup = true
+  query.value = suggestionQuery(item)
   suggestions.value = []
   error.value = ''
 }
@@ -198,19 +200,20 @@ const loadMapData = async () => {
       const payload = await resp.json()
       const refined = normalizeSuggestionList(payload?.results, lookupQuery)
       picked = refined[0] || null
-      suggestions.value = refined
+      if (!picked) suggestions.value = refined
     }
 
     let url = ''
     if (picked?.postcode) {
       const displayWithPostcode = Boolean(postcodeInput) || shouldDisplayPostcode(query.value)
+      selectedSuggestion.value = picked
+      skipNextSuggestionLookup = true
       query.value = suggestionQuery(picked, displayWithPostcode)
       url =
         `/api/risk-map?postcode=${encodeURIComponent(picked.postcode)}` +
         `&lat=${encodeURIComponent(picked.lat)}` +
         `&lng=${encodeURIComponent(picked.lng)}` +
         `&address=${encodeURIComponent(query.value)}`
-      selectedSuggestion.value = picked
     } else if (postcodeInput) {
       url = `/api/risk-map?postcode=${encodeURIComponent(postcodeInput)}&address=${encodeURIComponent(query.value)}`
     } else {
@@ -222,6 +225,7 @@ const loadMapData = async () => {
     if (!response.ok) throw new Error(payload?.error || 'Failed to load wildlife records.')
 
     if (!picked && postcodeInput && payload?.location?.suburbName) {
+      skipNextSuggestionLookup = true
       query.value = `${postcodeInput} ${payload.location.suburbName}`
     }
 
@@ -253,6 +257,20 @@ watch(activeRiskFilter, renderSpecies)
 watch(query, (value) => {
   const text = String(value || '').trim()
   if (suggestTimer) clearTimeout(suggestTimer)
+  if (skipNextSuggestionLookup) {
+    skipNextSuggestionLookup = false
+    suggestions.value = []
+    searchingSuggestions.value = false
+    return
+  }
+  if (
+    selectedSuggestion.value?.postcode &&
+    text === suggestionQuery(selectedSuggestion.value, shouldDisplayPostcode(text))
+  ) {
+    suggestions.value = []
+    searchingSuggestions.value = false
+    return
+  }
   if (text.length < 2) {
     suggestions.value = []
     return

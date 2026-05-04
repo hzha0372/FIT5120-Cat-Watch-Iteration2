@@ -534,13 +534,22 @@ const confirmManualSpecies = async () => {
 }
 
 watch(postcodeInput, () => {
+  if (suburbTimer) window.clearTimeout(suburbTimer)
+  if (
+    selectedSuburb.value?.postcode &&
+    postcodeInput.value === suburbLabel(selectedSuburb.value)
+  ) {
+    activePostcode.value = selectedSuburb.value.postcode
+    suburbSuggestions.value = []
+    return
+  }
+
   // Reset selected suburb when the text changes.
   if (!selectedSuburb.value || postcodeInput.value !== suburbLabel(selectedSuburb.value)) {
     selectedSuburb.value = null
     activePostcode.value = ''
   }
 
-  if (suburbTimer) window.clearTimeout(suburbTimer)
   suburbTimer = window.setTimeout(loadSuburbSuggestions, 180)
 
   // Resume analysis when a typed postcode becomes valid.

@@ -106,8 +106,8 @@ const resolvePostcode = async () => {
     throw new Error('Please enter a valid Victorian suburb or postcode.')
   }
   const match = payload.results[0]
-  postcodeInput.value = suggestionLabel(match)
   selectedSuggestion.value = match
+  postcodeInput.value = suggestionLabel(match)
   return match.postcode
 }
 
@@ -137,10 +137,18 @@ const submitPostcode = async () => {
 }
 
 watch(postcodeInput, () => {
+  if (lookupTimer) clearTimeout(lookupTimer)
+  if (
+    selectedSuggestion.value?.postcode &&
+    postcodeInput.value === suggestionLabel(selectedSuggestion.value)
+  ) {
+    suggestions.value = []
+    return
+  }
+
   if (!selectedSuggestion.value || postcodeInput.value !== suggestionLabel(selectedSuggestion.value)) {
     selectedSuggestion.value = null
   }
-  if (lookupTimer) clearTimeout(lookupTimer)
   lookupTimer = setTimeout(lookupSuburbs, 180)
 })
 
