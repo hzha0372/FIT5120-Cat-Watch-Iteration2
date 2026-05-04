@@ -325,7 +325,7 @@ const loadSuburbSuggestions = async () => {
 
   suburbLoading.value = true
   try {
-    const response = await fetch(`/api/photo-identifier?action=suburbs&q=${encodeURIComponent(q)}&limit=6`)
+    const response = await fetch(`/api/photo-identifier?action=suburbs&q=${encodeURIComponent(q)}&limit=30`)
     const payload = await response.json()
     if (requestId !== suburbRequestId || postcodeInput.value.trim() !== q) return
     suburbSuggestions.value = payload?.results || []
