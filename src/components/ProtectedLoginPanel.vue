@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { login } from '../utils/auth'
+import { authFallback } from '../utils/localAuthFallback'
 
 defineProps({
   title: {
@@ -30,21 +31,42 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
-    const response = await fetch('/api/catwatch-authentication', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    let payload = null
+    try {
+      const response = await fetch('/api/catwatch-authentication', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'login',
+          email: username.value,
+          password: password.value,
+        }),
+      })
+      const body = await response.json()
+      if (!response.ok) {
+        if (response.status >= 500) {
+          payload = authFallback({
+            action: 'login',
+            email: username.value,
+            password: password.value,
+          })
+        } else {
+          throw new Error(body?.error || 'Unable to sign in.')
+        }
+      } else {
+        payload = body
+      }
+    } catch {
+      payload = authFallback({
         action: 'login',
         email: username.value,
         password: password.value,
-      }),
-    })
-    const payload = await response.json()
-    if (!response.ok) throw new Error(payload?.error || 'Unable to sign in.')
+      })
+    }
     login(payload.user)
     emit('success')
   } catch (err) {
-    error.value = err?.message || 'Unable to sign in.'
+    error.value = err?.message || 'Unable to sign in right now. Please try again later.'
   } finally {
     loading.value = false
   }

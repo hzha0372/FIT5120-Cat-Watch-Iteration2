@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { login } from '../utils/auth'
+import { authFallback } from '../utils/localAuthFallback'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,14 +45,22 @@ const switchMode = (nextMode) => {
 
 // Send login/register requests to the database auth endpoint.
 const postAuth = async (body) => {
-  const response = await fetch('/api/catwatch-authentication', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const payload = await response.json()
-  if (!response.ok) throw new Error(payload?.error || 'Authentication failed.')
-  return payload
+  try {
+    const response = await fetch('/api/catwatch-authentication', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const payload = await response.json()
+    if (!response.ok) {
+      // Fall back only for backend/server outages.
+      if (response.status >= 500) return authFallback(body)
+      throw new Error(payload?.error || 'Authentication failed.')
+    }
+    return payload
+  } catch {
+    return authFallback(body)
+  }
 }
 
 // Log in and save the returned user profile in the browser session.
@@ -74,7 +83,7 @@ const handleLogin = async () => {
     const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     await router.replace(redirectTo)
   } catch (err) {
-    error.value = err?.message || 'Unable to sign in.'
+    error.value = 'Unable to sign in right now. Please try again later.'
   } finally {
     loading.value = false
   }
@@ -112,7 +121,7 @@ const handleRegister = async () => {
     const redirectTo = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     await router.replace(redirectTo)
   } catch (err) {
-    error.value = err?.message || 'Unable to create account.'
+    error.value = 'Unable to create account right now. Please try again later.'
   } finally {
     loading.value = false
   }
