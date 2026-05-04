@@ -43,10 +43,10 @@ const switchMode = (nextMode) => {
   success.value = ''
 }
 
-// Send login/register requests to the database auth endpoint.
+// Send login/register requests through the shared Scoreboard auth action.
 const postAuth = async (body) => {
   try {
-    const response = await fetch('/api/catwatch-authentication', {
+    const response = await fetch('/api/scoreboard?action=auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -133,7 +133,7 @@ const handleRegister = async () => {
     <section class="login-panel">
       <article class="login-hero">
         <div class="hero-logo-wrap" aria-hidden="true">
-          <img class="hero-logo" src="/images/catwatch-logo.png" alt="" />
+          <img class="hero-logo" src="/images/catwatch-logo.jpg" alt="" />
         </div>
         <p class="eyebrow">Catwatcher Secure Access</p>
         <h1>{{ heroTitle }}</h1>
@@ -382,4 +382,3 @@ const handleRegister = async () => {
   }
 }
 </style>
-

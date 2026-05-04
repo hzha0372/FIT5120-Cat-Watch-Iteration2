@@ -13,7 +13,7 @@ const formatCount = (value) => {
   return n.toLocaleString()
 }
 
-// Home summary numbers are a direct projection of /api/mission statistics coverage counts.
+// Home summary numbers are a direct projection of About Us page JS coverage counts.
 const stats = computed(() => {
   const coverage = missionStats.value?.coverage || {}
   return [
@@ -67,12 +67,12 @@ const tools = [
   },
 ]
 
-// Fetch once on page load so Home always reflects the current database counts from users, species_cache, reserves, and roaming_log.
+// Fetch once on page load so Home always reflects the current database counts owned by the About Us page JS.
 const fetchMissionStats = async () => {
   loading.value = true
   error.value = ''
   try {
-    const response = await fetch('/api/mission-statistics')
+    const response = await fetch('/api/about-us')
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Failed to load database stats.')
     missionStats.value = payload
@@ -367,4 +367,3 @@ const markIconFailed = (title) => {
   }
 }
 </style>
-

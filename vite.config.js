@@ -3,13 +3,29 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
-import apiRouter from './server/api-router.js'
+import aboutUsHandler from './api/about-us.js'
+import impactScoreHandler from './api/impact-score.js'
+import photoIdentifierHandler from './api/photo-identifier.js'
+import riskMapHandler from './api/risk-map.js'
+import scoreboardHandler from './api/scoreboard.js'
 
-// Adapt function-style handler into Vite middleware.
-const createApiMiddleware = (handler) => async (req, res) => {
+const localApiRoutes = {
+  'about-us': { handler: aboutUsHandler, action: 'stats' },
+  'impact-score': { handler: impactScoreHandler, action: 'data' },
+  'photo-identifier': { handler: photoIdentifierHandler, action: 'identify' },
+  'risk-map': { handler: riskMapHandler, action: 'data' },
+  scoreboard: { handler: scoreboardHandler, action: 'data' },
+}
+
+const getLocalApiRouteName = (url) => url.pathname.replace(/^\/api\/?/, '').replace(/^\/+|\/+$/g, '')
+
+// Adapt the five Vercel API files into Vite middleware for local development.
+const createApiMiddleware = () => async (req, res) => {
   // Give Vite requests the same API shape as deployment.
   const url = new URL(req.url || '/', 'http://localhost')
   const query = Object.fromEntries(url.searchParams.entries())
+  const routeName = getLocalApiRouteName(url)
+  const route = localApiRoutes[routeName]
   const reqLike = Object.assign(req, { query })
 
   const resLike = {
@@ -24,7 +40,13 @@ const createApiMiddleware = (handler) => async (req, res) => {
   }
 
   try {
-    await handler(reqLike, resLike)
+    if (!route) {
+      resLike.status(404).json({ error: `Unknown API route: ${routeName || '/'}` })
+      return
+    }
+
+    reqLike.featureAction = reqLike.query.action || route.action
+    await route.handler(reqLike, resLike)
   } catch (error) {
     res.statusCode = 500
     res.setHeader('Content-Type', 'application/json; charset=utf-8')
@@ -41,7 +63,7 @@ export default defineConfig({
       name: 'local-api-routes',
       configureServer(server) {
         // Register local API routes for development.
-        server.middlewares.use('/api', createApiMiddleware(apiRouter))
+        server.middlewares.use('/api', createApiMiddleware())
       },
     },
   ],

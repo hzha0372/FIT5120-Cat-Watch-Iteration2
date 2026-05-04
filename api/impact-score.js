@@ -1,12 +1,18 @@
+import { Pool } from 'pg'
+
+// Impact Score page JS.
+// Owns score data, formula weights, and suburb suggestions used by CatImpactScoreView.vue.
+// Vercel entry: /api/impact-score, with action=formula or action=suburbs for supporting sections.
+let impactScoreDataHandler
+{
 /* eslint-env node */
 /* global process */
-import { Pool } from 'pg'
 
 const DEFAULT_DB_CONFIG = {
   host: '130.162.194.202',
   port: 5432,
   user: 'postgres',
-  password: 'P@ssw0rd',
+  password: 'bbd4ba1eb45b2b5308e993832030699301d9dc49b2b935d747759502bc8e055a',
   database: 'echoes_of_earth',
 }
 
@@ -306,7 +312,7 @@ const getImpactScore = async (postcode) => {
 }
 
 // API entry point used by Vite middleware and serverless style handlers.
-export default async function handler(req, res) {
+impactScoreDataHandler = async function(req, res) {
   try {
     const postcode = cleanPostcode(req.query?.postcode)
 
@@ -322,4 +328,245 @@ export default async function handler(req, res) {
     const status = message.startsWith('No pre-computed') ? 404 : 500
     res.status(status).json({ error: message })
   }
+}
+
+}
+
+let impactScoreFormulaHandler
+{
+/* eslint-env node */
+/* global process */
+
+const DEFAULT_DB_CONFIG = {
+  host: '130.162.194.202',
+  port: 5432,
+  user: 'postgres',
+  password: 'bbd4ba1eb45b2b5308e993832030699301d9dc49b2b935d747759502bc8e055a',
+  database: 'echoes_of_earth',
+}
+
+const SCORE_COMPONENTS = [
+  {
+    key: 'containmentGap',
+    label: 'Containment gap',
+    weightPct: 45,
+    tone: 'weight-red',
+    sourceStatName: 'containment_gap_pct',
+  },
+  {
+    key: 'wildlifeDensity',
+    label: 'Wildlife density',
+    weightPct: 35,
+    tone: 'weight-blue',
+    sourceStatName: null,
+  },
+  {
+    key: 'roamingCatDensity',
+    label: 'Roaming cat density',
+    weightPct: 20,
+    tone: 'weight-yellow',
+    sourceStatName: 'outdoor_cat_pct',
+  },
+]
+
+let pool = null
+
+const toInt = (value, fallback = 0) => {
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.round(n) : fallback
+}
+
+const getPool = () => {
+  if (pool) return pool
+  const hasUrl = Boolean(process.env.DATABASE_URL)
+  const config = hasUrl
+    ? { connectionString: process.env.DATABASE_URL }
+    : {
+        host: process.env.PGHOST || DEFAULT_DB_CONFIG.host,
+        port: Number(process.env.PGPORT || DEFAULT_DB_CONFIG.port),
+        user: process.env.PGUSER || DEFAULT_DB_CONFIG.user,
+        password: process.env.PGPASSWORD || DEFAULT_DB_CONFIG.password,
+        database: process.env.PGDATABASE || DEFAULT_DB_CONFIG.database,
+      }
+
+  if (process.env.NODE_ENV === 'production' && hasUrl) {
+    config.ssl = { rejectUnauthorized: false }
+  }
+
+  pool = new Pool(config)
+  return pool
+}
+
+// Return the scoring model displayed before a suburb is searched.
+impactScoreFormulaHandler = async function(req, res) {
+  try {
+    const db = getPool()
+    const [scoreRowsResult, statsResult] = await Promise.all([
+      db.query(`SELECT COUNT(*)::int AS row_count FROM suburb_scores`),
+      db.query(
+        `SELECT stat_name, source, notes
+         FROM cats_behaviour_stats
+         WHERE stat_name IN ('containment_gap_pct', 'outdoor_cat_pct')`,
+      ),
+    ])
+
+    const scoreRows = toInt(scoreRowsResult.rows?.[0]?.row_count)
+    if (scoreRows <= 0) {
+      res.status(503).json({ error: 'No database rows found in suburb_scores.', components: [] })
+      return
+    }
+
+    const sourceByName = new Map()
+    for (const row of statsResult.rows || []) {
+      sourceByName.set(String(row.stat_name || '').trim(), {
+        source: row.source || '',
+        notes: row.notes || '',
+      })
+    }
+
+    res.status(200).json({
+      components: SCORE_COMPONENTS.map((item) => {
+        const sourceMeta = item.sourceStatName ? sourceByName.get(item.sourceStatName) : null
+        return {
+          key: item.key,
+          label: item.label,
+          weightPct: item.weightPct,
+          tone: item.tone,
+          source:
+            sourceMeta?.source ||
+            (item.key === 'wildlifeDensity'
+              ? 'Atlas of Living Australia via species_cache'
+              : 'CatWatch scoring model'),
+          notes:
+            sourceMeta?.notes ||
+            'Weight used by the CatWatch impact score formula stored in suburb_scores.',
+        }
+      }),
+      databaseCoverage: {
+        suburbScoreRows: scoreRows,
+      },
+      updatedAt: new Date().toISOString(),
+    })
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Unable to load impact formula.', components: [] })
+  }
+}
+
+}
+
+let impactScoreSuburbsHandler
+{
+/* eslint-env node */
+/* global process */
+
+const DEFAULT_DB_CONFIG = {
+  host: '130.162.194.202',
+  port: 5432,
+  user: 'postgres',
+  password: 'bbd4ba1eb45b2b5308e993832030699301d9dc49b2b935d747759502bc8e055a',
+  database: 'echoes_of_earth',
+}
+
+let pool = null
+
+// Get and reuse database connection pool.
+const getPool = () => {
+  if (pool) return pool
+  const hasUrl = Boolean(process.env.DATABASE_URL)
+
+  const config = hasUrl
+    ? { connectionString: process.env.DATABASE_URL }
+    : {
+        host: process.env.PGHOST || DEFAULT_DB_CONFIG.host,
+        port: Number(process.env.PGPORT || DEFAULT_DB_CONFIG.port),
+        user: process.env.PGUSER || DEFAULT_DB_CONFIG.user,
+        password: process.env.PGPASSWORD || DEFAULT_DB_CONFIG.password,
+        database: process.env.PGDATABASE || DEFAULT_DB_CONFIG.database,
+      }
+
+  if (process.env.NODE_ENV === 'production' && hasUrl) {
+    config.ssl = { rejectUnauthorized: false }
+  }
+
+  pool = new Pool(config)
+  return pool
+}
+
+// Handle API request and return aggregated response data.
+impactScoreSuburbsHandler = async function(req, res) {
+  try {
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : ''
+    const limit = Math.max(1, Math.min(12, Number(req.query.limit) || 8))
+
+    if (!q) {
+      res.status(200).json({ results: [] })
+      return
+    }
+
+    const query = String(q).toLowerCase()
+    const postcodePrefix = query.match(/^(\d{1,4})/)?.[1] || ''
+    const isPostcode = Boolean(postcodePrefix)
+
+    const db = getPool()
+    // Search only Victorian suburb_demographics rows.
+    const result = await db.query(
+      `SELECT TRIM(postcode) AS postcode, suburb_name, centroid_lat, centroid_lng, population
+       FROM suburb_demographics
+       WHERE state = 'VIC'
+         AND (
+           suburb_name ILIKE $1
+           OR CAST(TRIM(postcode) AS TEXT) LIKE $2
+         )
+       ORDER BY
+         CASE
+           WHEN CAST(TRIM(postcode) AS TEXT) = $3 THEN 0
+           WHEN suburb_name ILIKE $4 AND LOWER(TRIM(suburb_name)) <> LOWER(TRIM(postcode)) THEN 0
+           ELSE 1
+         END,
+         CASE
+           WHEN LOWER(TRIM(suburb_name)) = LOWER(TRIM(postcode)) THEN 1
+           ELSE 0
+         END,
+         population DESC NULLS LAST,
+         suburb_name ASC
+       LIMIT $5`,
+      [`%${q}%`, `${isPostcode ? postcodePrefix : query}%`, isPostcode ? postcodePrefix : '', `${q}%`, limit * 3],
+    )
+
+    const rows = result.rows || []
+    const dedup = new Map()
+    for (const row of rows) {
+      const postcode = String(row.postcode || '')
+      const name = String(row.suburb_name || '').trim()
+      if (!postcode || !name) continue
+      // Some source rows use the postcode as the suburb name.
+      const hasRealName = name.toLowerCase() !== postcode.toLowerCase()
+      const label = isPostcode && hasRealName ? `${postcode} · ${name}` : hasRealName ? name : postcode
+      const displayQuery = hasRealName ? `${postcode} ${name}` : postcode
+      if (!dedup.has(postcode)) {
+        dedup.set(postcode, {
+          id: `${postcode}-${name}`,
+          name,
+          postcode,
+          lat: Number(row.centroid_lat),
+          lng: Number(row.centroid_lng),
+          label,
+          displayQuery,
+        })
+      }
+    }
+
+    res.status(200).json({ results: Array.from(dedup.values()).slice(0, limit) })
+  } catch (error) {
+    res.status(500).json({ error: error?.message || 'Suburb lookup failed', results: [] })
+  }
+}
+
+}
+
+export default async function impactScoreHandler(req, res) {
+  const action = String(req.query?.action || req.featureAction || 'data')
+  if (action === 'formula') return impactScoreFormulaHandler(req, res)
+  if (action === 'suburbs') return impactScoreSuburbsHandler(req, res)
+  return impactScoreDataHandler(req, res)
 }

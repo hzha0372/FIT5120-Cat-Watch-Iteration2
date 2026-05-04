@@ -18,7 +18,7 @@ npm run dev
 
 ## Database setup (PostgreSQL/PostGIS)
 
-The API handlers in `server/api-handlers` support your existing schema:
+The five page API files in `api/` support your existing schema:
 
 - `suburb_demographics`
 - `species_cache`
@@ -38,5 +38,5 @@ The project queries the real database directly for:
 
 ## Notes
 
-- Vercel sees only one function file: `api/index.js`.
-- During local dev, Vite serves all `/api/...` requests through the same router in `server/api-router.js`.
+- Vercel sees five function files, one for each Explore page: `risk-map`, `impact-score`, `scoreboard`, `photo-identifier`, and `about-us`.
+- During local dev, Vite adapts those same five files directly, so the page Vue and matching API JS stay easy to find together.

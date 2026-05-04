@@ -90,7 +90,7 @@ onUnmounted(() => {
         <div class="brand">
           <img
             v-if="!logoMissing"
-            src="/images/catwatch-logo.png"
+            src="/images/catwatch-logo.jpg"
             alt="Catwatcher logo"
             @error="logoMissing = true"
           />
@@ -181,12 +181,12 @@ onUnmounted(() => {
 .brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
 }
 
 .brand img {
-  width: 72px;
-  height: 72px;
+  width: 96px;
+  height: 96px;
   border-radius: 14px;
   object-fit: cover;
   border: 1px solid #c5cec3;
@@ -347,8 +347,8 @@ onUnmounted(() => {
 
 @media (max-width: 640px) {
   .brand img {
-    width: 52px;
-    height: 52px;
+    width: 64px;
+    height: 64px;
     border-radius: 12px;
   }
 
@@ -379,4 +379,3 @@ onUnmounted(() => {
   }
 }
 </style>
-

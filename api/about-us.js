@@ -1,12 +1,16 @@
+import { Pool } from 'pg'
+
+// About Us page JS.
+// Owns mission statistics used by VisionMissionView.vue and the Home page summary.
+// Vercel entry: /api/about-us.
 /* eslint-env node */
 /* global process */
-import { Pool } from 'pg'
 
 const DEFAULT_DB_CONFIG = {
   host: '130.162.194.202',
   port: 5432,
   user: 'postgres',
-  password: 'P@ssw0rd',
+  password: 'bbd4ba1eb45b2b5308e993832030699301d9dc49b2b935d747759502bc8e055a',
   database: 'echoes_of_earth',
 }
 
@@ -40,7 +44,7 @@ const getPool = () => {
   return pool
 }
 
-// Handle API request and return aggregated response data for Home/About pages.
+// Handle API request and return aggregated response data for the About Us page and Home summary.
 export default async function handler(req, res) {
   try {
     const db = getPool()

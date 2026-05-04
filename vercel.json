@@ -1,6 +1,16 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api?route=$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/risk-map", "destination": "/index.html" },
+    { "source": "/impact-score", "destination": "/index.html" },
+    { "source": "/cat-scoreboard", "destination": "/index.html" },
+    { "source": "/my-dashboard", "destination": "/index.html" },
+    { "source": "/dashboard", "destination": "/index.html" },
+    { "source": "/guardian/leaderboard", "destination": "/index.html" },
+    { "source": "/login", "destination": "/index.html" },
+    { "source": "/photo-identifier", "destination": "/index.html" },
+    { "source": "/sighting-reporter", "destination": "/index.html" },
+    { "source": "/about", "destination": "/index.html" },
+    { "source": "/vision-mission", "destination": "/index.html" }
   ]
 }

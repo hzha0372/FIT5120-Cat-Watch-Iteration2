@@ -50,7 +50,7 @@ const legendItems = [
 // Keep the original suburb/postcode search behavior while using the prototype shell.
 const getPostcodeFromInput = (value) => String(value || '').match(/\b(\d{4})\b/)?.[1] || ''
 
-// Normalize /api/victorian suburbs suggestions before display.
+// Normalize Risk Map suburb suggestions before display.
 const normalizeSuggestionList = (items, rawQuery) => {
   const q = String(rawQuery || '').trim().toLowerCase()
   const list = Array.isArray(items) ? items : []
@@ -103,7 +103,7 @@ const onInputChange = () => {
   selectedSuggestion.value = null
 }
 
-// Leaflet is created only once; all pins are then cleared/re rendered from the latest /api/catwatch risk map data payload.
+// Leaflet is created only once; all pins are then cleared/re-rendered from the Risk Map feature API payload.
 const ensureMap = () => {
   if (map.value || !mapEl.value) return
 
@@ -183,7 +183,7 @@ const renderSpecies = async () => {
   if (bounds.length) map.value.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 })
 }
 
-// The map search resolves a suburb/postcode through /api/victorian suburbs, then asks /api/catwatch risk map data for species, schedule, ri...
+// The map search resolves a suburb/postcode through the Risk Map feature API, then loads species, schedule, and risk data from the same page JS.
 const loadMapData = async () => {
   loading.value = true
   error.value = ''
@@ -194,7 +194,7 @@ const loadMapData = async () => {
 
     if (!picked && query.value.trim()) {
       const lookupQuery = postcodeInput || query.value
-      const resp = await fetch(`/api/victorian-suburbs?q=${encodeURIComponent(lookupQuery)}&limit=8`)
+      const resp = await fetch(`/api/risk-map?action=suburbs&q=${encodeURIComponent(lookupQuery)}&limit=8`)
       const payload = await resp.json()
       const refined = normalizeSuggestionList(payload?.results, lookupQuery)
       picked = refined[0] || null
@@ -206,13 +206,13 @@ const loadMapData = async () => {
       const displayWithPostcode = Boolean(postcodeInput) || shouldDisplayPostcode(query.value)
       query.value = suggestionQuery(picked, displayWithPostcode)
       url =
-        `/api/catwatch-risk-map-data?postcode=${encodeURIComponent(picked.postcode)}` +
+        `/api/risk-map?postcode=${encodeURIComponent(picked.postcode)}` +
         `&lat=${encodeURIComponent(picked.lat)}` +
         `&lng=${encodeURIComponent(picked.lng)}` +
         `&address=${encodeURIComponent(query.value)}`
       selectedSuggestion.value = picked
     } else if (postcodeInput) {
-      url = `/api/catwatch-risk-map-data?postcode=${encodeURIComponent(postcodeInput)}&address=${encodeURIComponent(query.value)}`
+      url = `/api/risk-map?postcode=${encodeURIComponent(postcodeInput)}&address=${encodeURIComponent(query.value)}`
     } else {
       throw new Error('Please select a Victorian suburb or enter a valid 4-digit postcode.')
     }
@@ -261,7 +261,7 @@ watch(query, (value) => {
   suggestTimer = setTimeout(async () => {
     searchingSuggestions.value = true
     try {
-      const resp = await fetch(`/api/victorian-suburbs?q=${encodeURIComponent(text)}&limit=8`)
+      const resp = await fetch(`/api/risk-map?action=suburbs&q=${encodeURIComponent(text)}&limit=8`)
       const payload = await resp.json()
       suggestions.value = normalizeSuggestionList(payload?.results, text)
     } catch {

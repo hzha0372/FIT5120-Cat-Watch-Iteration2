@@ -5,12 +5,12 @@ const loading = ref(false)
 const error = ref('')
 const data = ref(null)
 
-// Fetch mission statistics from the database backed API.
+// Fetch mission statistics from the About Us page JS.
 const fetchMissionStats = async () => {
   loading.value = true
   error.value = ''
   try {
-    const response = await fetch('/api/mission-statistics')
+    const response = await fetch('/api/about-us')
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Failed to load mission stats.')
     data.value = payload
@@ -337,4 +337,3 @@ onMounted(fetchMissionStats)
   }
 }
 </style>
-

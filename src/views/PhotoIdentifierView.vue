@@ -306,7 +306,7 @@ const resetPhoto = () => {
 }
 
 const loadSuburbSuggestions = async () => {
-  // Load suburb suggestions from the database API.
+  // Load suburb suggestions from the Photo Identifier page JS.
   const q = postcodeInput.value.trim()
   if (q.length < 2) {
     suburbSuggestions.value = []
@@ -315,7 +315,7 @@ const loadSuburbSuggestions = async () => {
 
   suburbLoading.value = true
   try {
-    const response = await fetch(`/api/victorian-suburbs?q=${encodeURIComponent(q)}&limit=6`)
+    const response = await fetch(`/api/photo-identifier?action=suburbs&q=${encodeURIComponent(q)}&limit=6`)
     const payload = await response.json()
     suburbSuggestions.value = payload?.results || []
   } catch {
@@ -358,7 +358,7 @@ const resolvePostcode = async () => {
   const q = postcodeInput.value.trim()
   if (!q) throw new Error('Please enter a Victorian suburb or postcode.')
 
-  const response = await fetch(`/api/victorian-suburbs?q=${encodeURIComponent(q)}&limit=1`)
+  const response = await fetch(`/api/photo-identifier?action=suburbs&q=${encodeURIComponent(q)}&limit=1`)
   const payload = await response.json()
   const match = payload?.results?.[0]
   if (!response.ok || !match?.postcode) {
@@ -369,12 +369,12 @@ const resolvePostcode = async () => {
   return match.postcode
 }
 
-// Load database species options for manual confirmation.
+// Load database species options for manual confirmation from the Photo Identifier page JS.
 const loadSpeciesOptions = async () => {
   speciesLoading.value = true
   try {
     const response = await fetch(
-      `/api/native-species-options?q=${encodeURIComponent(speciesSearch.value.trim())}&limit=160`,
+      `/api/photo-identifier?action=species-options&q=${encodeURIComponent(speciesSearch.value.trim())}&limit=160`,
     )
     const payload = await response.json()
     speciesOptions.value = payload?.results || []
@@ -385,10 +385,10 @@ const loadSpeciesOptions = async () => {
   }
 }
 
-// Load database predation statistics.
+// Load database predation statistics through the Photo Identifier page JS.
 const loadPredationStats = async () => {
   try {
-    const response = await fetch('/api/mission-statistics')
+    const response = await fetch('/api/photo-identifier?action=predation-stats')
     const payload = await response.json()
     predationStat.value = payload?.behaviourStats?.preyMedianMonthly || null
   } catch {
@@ -404,7 +404,7 @@ const loadInsightForSpecies = async (species) => {
     scientificName: species.scientificName || '',
     commonName: species.commonName || '',
   })
-  const response = await fetch(`/api/species-sighting-insights?${params.toString()}`)
+  const response = await fetch(`/api/photo-identifier?action=insights&${params.toString()}`)
   const payload = await response.json()
   if (!response.ok) throw new Error(payload?.error || 'No database insight found for this species.')
   return normalizeInsight(payload, species)
@@ -418,7 +418,7 @@ const saveConfirmedSighting = async (species, insight, source) => {
   savedSighting.value = null
 
   try {
-    const response = await fetch('/api/species-sighting-reports', {
+    const response = await fetch('/api/photo-identifier?action=reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -475,7 +475,7 @@ const analyzePhoto = async () => {
     formData.append('postcode', postcode)
     formData.append('top_k', '3')
 
-    const response = await fetch('/api/wildlife-photo-identification', {
+    const response = await fetch('/api/photo-identifier', {
       method: 'POST',
       body: formData,
       signal: controller.signal,
@@ -1848,4 +1848,3 @@ svg {
   }
 }
 </style>
-

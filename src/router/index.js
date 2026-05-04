@@ -6,7 +6,6 @@ import CatScoreboardView from '../views/CatScoreboardView.vue'
 import VisionMissionView from '../views/VisionMissionView.vue'
 import PhotoIdentifierView from '../views/PhotoIdentifierView.vue'
 import LoginView from '../views/LoginView.vue'
-import GuardianLeaderboardView from '../views/GuardianLeaderboardView.vue'
 import { isAuthenticated } from '../utils/auth'
 
 // Central route table for the Catwatcher single page app.
@@ -33,7 +32,7 @@ const routes = [
   },
   {
     path: '/guardian/leaderboard',
-    component: GuardianLeaderboardView,
+    component: CatScoreboardView,
     meta: { requiresAuth: true },
   },
   {
@@ -74,4 +73,3 @@ router.beforeEach((to) => {
 })
 
 export default router
-

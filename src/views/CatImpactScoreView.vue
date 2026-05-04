@@ -25,7 +25,7 @@ const scoreRiskKey = computed(() => data.value?.score?.risk?.key || 'lower')
 const riskClass = (key) => `risk-${key || 'lower'}`
 const formulaComponents = computed(() => formulaData.value?.components || [])
 
-// Risk bands are display rules for the score returned by /api/cat impact score data.
+// Risk bands are display rules for the score returned by the Impact Score page JS.
 const riskKeyForScore = (score) => {
   const value = Number(score)
   if (value > 70) return 'high'
@@ -40,12 +40,12 @@ const componentToneClass = (component) => {
   return 'component-blue'
 }
 
-// Load the formula block from the API instead of keeping the displayed weights in the Vue component.
+// Load the formula block from the Impact Score page JS instead of keeping displayed weights in the Vue component.
 const fetchImpactFormula = async () => {
   formulaLoading.value = true
   formulaError.value = ''
   try {
-    const response = await fetch('/api/cat-impact-score-formula')
+    const response = await fetch('/api/impact-score?action=formula')
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Failed to load score formula.')
     formulaData.value = payload
@@ -65,7 +65,7 @@ const suggestionLabel = (item) => {
   return [postcode, name].filter(Boolean).join(' ')
 }
 
-// Search suggestions come from suburb_demographics through /api/victorian suburbs.
+// Search suggestions come from suburb_demographics through the Impact Score page JS.
 const lookupSuburbs = async () => {
   const q = postcodeInput.value.trim()
   if (q.length < 2) {
@@ -75,7 +75,7 @@ const lookupSuburbs = async () => {
 
   lookupLoading.value = true
   try {
-    const response = await fetch(`/api/victorian-suburbs?q=${encodeURIComponent(q)}&limit=6`)
+    const response = await fetch(`/api/impact-score?action=suburbs&q=${encodeURIComponent(q)}&limit=6`)
     const payload = await response.json()
     suggestions.value = payload?.results || []
   } catch {
@@ -100,7 +100,7 @@ const resolvePostcode = async () => {
   const direct = normalizePostcode(postcodeInput.value)
   if (direct) return direct
 
-  const response = await fetch(`/api/victorian-suburbs?q=${encodeURIComponent(postcodeInput.value.trim())}&limit=1`)
+  const response = await fetch(`/api/impact-score?action=suburbs&q=${encodeURIComponent(postcodeInput.value.trim())}&limit=1`)
   const payload = await response.json()
   if (!response.ok || !payload?.results?.[0]?.postcode) {
     throw new Error('Please enter a valid Victorian suburb or postcode.')
@@ -124,7 +124,7 @@ const submitPostcode = async () => {
   error.value = ''
   try {
     const postcode = await resolvePostcode()
-    const response = await fetch(`/api/cat-impact-score-data?postcode=${encodeURIComponent(postcode)}`)
+    const response = await fetch(`/api/impact-score?postcode=${encodeURIComponent(postcode)}`)
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Failed to load Cat Impact Score.')
     data.value = payload
@@ -190,7 +190,7 @@ onMounted(fetchImpactFormula)
 
       <p v-if="error" class="error-line">{{ error }}</p>
 
-      <!-- Intro uses /api/cat-impact-score-formula so displayed weights are not stored in this view. -->
+      <!-- Intro uses the Impact Score page JS so displayed weights are not stored in this view. -->
       <section v-if="!data" class="component-intro">
         <p>
           Your score breaks down into three weighted components - each traceable to a
@@ -204,7 +204,7 @@ onMounted(fetchImpactFormula)
         </div>
       </section>
 
-      <!-- Result sections render only after /api/cat-impact-score-data returns database rows. -->
+      <!-- Result sections render only after the Impact Score page JS returns database rows. -->
       <section v-if="data" class="impact-result" :class="riskClass(scoreRiskKey)">
         <article class="score-card cw-card cw-card-pad">
           <div class="score-circle" :class="riskClass(scoreRiskKey)">

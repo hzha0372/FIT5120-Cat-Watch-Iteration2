@@ -1,10 +1,16 @@
 ﻿<script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { getCurrentUser } from '../utils/auth'
 
+const route = useRoute()
+const leaderboardOnly = computed(() => route.path.startsWith('/guardian/leaderboard'))
 const loading = ref(false)
 const error = ref('')
 const data = ref(null)
+const leaderboardLoading = ref(false)
+const leaderboardError = ref('')
+const leaderboardPayload = ref(null)
 
 const formatNumber = (value, digits = 0) => {
   const n = Number(value)
@@ -21,6 +27,11 @@ const topRow = computed(() => rankingRows.value[0] || null)
 const personal = computed(() => data.value?.personal || null)
 const guardian = computed(() => data.value?.guardian || null)
 const leaderboardMeta = computed(() => data.value?.leaderboardMeta || null)
+const leaderboardTopTen = computed(() => leaderboardPayload.value?.topTen || [])
+const leaderboardUserRow = computed(() => leaderboardPayload.value?.userRow || null)
+const leaderboardPercentileLabel = computed(() => leaderboardPayload.value?.percentileLabel || '')
+const leaderboardUpdatedNote = computed(() => leaderboardPayload.value?.updatedNote || 'Rankings updated every Monday morning.')
+const leaderboardUserInTopTen = computed(() => leaderboardTopTen.value.some((row) => row.isUserSuburb))
 
 const criteria = computed(() =>
   (data.value?.criteria || []).map((item) => [item.label, `${Math.round(Number(item.weightPct || 0))}%`]),
@@ -44,7 +55,7 @@ const stats = computed(() => [
   },
 ])
 
-// Load scoreboard data for the currently logged in user's postcode.
+// Load scoreboard data for the currently logged in user's postcode from the Scoreboard page JS.
 const fetchScoreboard = async () => {
   loading.value = true
   error.value = ''
@@ -59,7 +70,7 @@ const fetchScoreboard = async () => {
       throw new Error('Please sign in again so Catwatcher can load your registered postcode.')
     }
 
-    const response = await fetch(`/api/cat-scoreboard-data?${params.toString()}`)
+    const response = await fetch(`/api/scoreboard?${params.toString()}`)
     const payload = await response.json()
     if (!response.ok) throw new Error(payload?.error || 'Failed to load Cat Scoreboard.')
     data.value = payload
@@ -70,11 +81,99 @@ const fetchScoreboard = async () => {
   }
 }
 
-onMounted(fetchScoreboard)
+// The old /guardian/leaderboard URL now uses this same Vue file, but keeps its original leaderboard-only visual.
+const fetchLeaderboard = async () => {
+  leaderboardLoading.value = true
+  leaderboardError.value = ''
+  try {
+    const response = await fetch('/api/scoreboard?action=leaderboard')
+    const payload = await response.json()
+    if (!response.ok) throw new Error(payload?.error || 'Failed to load guardian leaderboard.')
+    leaderboardPayload.value = payload
+  } catch (err) {
+    leaderboardError.value = err?.message || 'Failed to load guardian leaderboard.'
+  } finally {
+    leaderboardLoading.value = false
+  }
+}
+
+watch(
+  leaderboardOnly,
+  (isLeaderboardOnly) => {
+    if (isLeaderboardOnly) {
+      void fetchLeaderboard()
+    } else {
+      void fetchScoreboard()
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
-  <main class="scoreboard-prototype cw-page">
+  <main v-if="leaderboardOnly" class="cw-page leaderboard-page">
+    <div class="cw-container">
+      <header class="leader-header">
+        <h1 class="cw-page-title">Live Suburb Leaderboard</h1>
+        <p class="cw-page-subtitle">Community containment rate ranking across Victorian suburbs this month.</p>
+        <p v-if="leaderboardPercentileLabel" class="percentile-pill">{{ leaderboardPercentileLabel }}</p>
+      </header>
+
+      <p v-if="leaderboardLoading" class="status-line">Loading leaderboard...</p>
+      <p v-if="leaderboardError" class="error-line">{{ leaderboardError }}</p>
+
+      <section class="cw-card rank-card" v-if="leaderboardTopTen.length">
+        <header class="rank-head">
+          <h2>Top 10 Suburbs</h2>
+          <p>Ordered by containment rate (highest to lowest).</p>
+        </header>
+
+        <div class="rank-list">
+          <article
+            v-for="row in leaderboardTopTen"
+            :key="`${row.postcode}-${row.rank}`"
+            class="rank-row"
+            :class="{ 'user-row': row.isUserSuburb }"
+          >
+            <div class="left">
+              <strong>#{{ row.rank }}</strong>
+            </div>
+            <div class="mid">
+              <h3>{{ row.suburbName }}</h3>
+              <small v-if="row.isUserSuburb" class="you-live">you live here</small>
+              <p>Postcode: {{ row.postcode }}</p>
+            </div>
+            <div class="right">
+              <strong>{{ formatNumber(row.containmentRatePct, 2) }}%</strong>
+              <span>{{ formatNumber(row.encountersPrevented, 2) }} estimated encounters prevented</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="cw-card your-suburb" v-if="leaderboardUserRow && !leaderboardUserInTopTen">
+        <h2>Your suburb</h2>
+        <article class="rank-row user-row">
+          <div class="left">
+            <strong>#{{ leaderboardUserRow.rank }}</strong>
+          </div>
+          <div class="mid">
+            <h3>{{ leaderboardUserRow.suburbName }}</h3>
+            <small class="you-live">you live here</small>
+            <p>Postcode: {{ leaderboardUserRow.postcode }}</p>
+          </div>
+          <div class="right">
+            <strong>{{ formatNumber(leaderboardUserRow.containmentRatePct, 2) }}%</strong>
+            <span>{{ formatNumber(leaderboardUserRow.encountersPrevented, 2) }} estimated encounters prevented</span>
+          </div>
+        </article>
+      </section>
+
+      <p class="updated-note">{{ leaderboardUpdatedNote }}</p>
+    </div>
+  </main>
+
+  <main v-else class="scoreboard-prototype cw-page">
     <div class="cw-container">
       <header class="scoreboard-header">
         <h1 class="cw-page-title">Neighbourhood Wildlife Guardian</h1>
@@ -278,6 +377,69 @@ onMounted(fetchScoreboard)
 .award-card h2 { margin: 20px 0 0; font-size: 1.22rem; font-weight: 850; }
 .award-card p { margin: 14px 0 0; max-width: 270px; line-height: 1.5; }
 .updated-note { margin-top: 18px; color: var(--cw-muted); font-weight: 700; }
-@media (max-width: 1040px) { .scoreboard-layout { grid-template-columns: 1fr; } }
-</style>
 
+.leaderboard-page { padding-top: 20px; }
+.leaderboard-page .leader-header { margin-bottom: 20px; }
+.leaderboard-page .percentile-pill {
+  display: inline-block;
+  margin-top: 10px;
+  border: 1px solid #86efac;
+  background: #ecfdf5;
+  color: #166534;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 800;
+}
+.leaderboard-page .status-line,
+.leaderboard-page .error-line { margin: 0 0 18px; font-weight: 700; }
+.leaderboard-page .error-line {
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff1f2;
+  color: #b91c1c;
+  padding: 10px 12px;
+}
+.leaderboard-page .rank-card { overflow: hidden; }
+.leaderboard-page .rank-head {
+  padding: 20px 22px;
+  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(90deg, #ecfdf5, #f0fdfa);
+}
+.leaderboard-page .rank-head h2 { margin: 0; }
+.leaderboard-page .rank-head p { margin: 6px 0 0; color: #4b5563; }
+.leaderboard-page .rank-list { display: grid; }
+.leaderboard-page .rank-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 280px;
+  gap: 14px;
+  align-items: center;
+  padding: 18px 20px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.leaderboard-page .rank-row:last-child { border-bottom: 0; }
+.leaderboard-page .user-row { border-left: 5px solid #22c55e; }
+.leaderboard-page .left strong { font-size: 1.2rem; color: #0f172a; }
+.leaderboard-page .mid h3 { margin: 0; color: #0f172a; }
+.leaderboard-page .mid p { margin: 6px 0 0; color: #475569; }
+.leaderboard-page .you-live {
+  display: inline-block;
+  margin-top: 5px;
+  border: 1px solid #86efac;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-weight: 800;
+  color: #15803d;
+  background: #f0fdf4;
+}
+.leaderboard-page .right { text-align: right; }
+.leaderboard-page .right strong { display: block; font-size: 1.8rem; color: #dc2626; font-weight: 900; }
+.leaderboard-page .right span { display: block; margin-top: 6px; color: #334155; font-weight: 700; font-size: 0.9rem; }
+.leaderboard-page .your-suburb { margin-top: 18px; padding: 18px; }
+.leaderboard-page .your-suburb h2 { margin: 0 0 10px; }
+.leaderboard-page .updated-note { margin-top: 16px; color: #475569; font-weight: 700; }
+@media (max-width: 1040px) { .scoreboard-layout { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .leaderboard-page .rank-row { grid-template-columns: 56px minmax(0, 1fr); }
+  .leaderboard-page .right { grid-column: 1 / -1; text-align: left; }
+}
+</style>

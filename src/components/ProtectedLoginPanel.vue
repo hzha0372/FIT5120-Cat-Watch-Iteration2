@@ -21,7 +21,7 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
-// Sign in from a protected-page inline panel.
+// Sign in from a protected-page inline panel through the shared Scoreboard auth action.
 const handleLogin = async () => {
   error.value = ''
   if (!username.value.trim() || !password.value.trim()) {
@@ -33,7 +33,7 @@ const handleLogin = async () => {
   try {
     let payload = null
     try {
-      const response = await fetch('/api/catwatch-authentication', {
+      const response = await fetch('/api/scoreboard?action=auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
