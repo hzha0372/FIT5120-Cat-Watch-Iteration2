@@ -570,15 +570,6 @@ onUnmounted(() => {
             </div>
           </section>
 
-          <section
-            v-if="showNearestReserve && nearestReserve"
-            class="cw-card cw-card-pad reserve-card"
-          >
-            <h2 class="side-title">{{ nearestReserve.name }}</h2>
-            <p>{{ nearestReserve.type }}</p>
-            <strong>{{ nearestReserve.distanceLabel }} from your location</strong>
-          </section>
-
           <section v-if="selectedSpecies" class="cw-card cw-card-pad detail-card">
             <h2 class="side-title">{{ selectedSpecies.commonName }}</h2>
             <p class="scientific">{{ selectedSpecies.scientificName }}</p>
@@ -596,6 +587,15 @@ onUnmounted(() => {
                 <dd>{{ selectedSpecies.recordedCount3y }} times · past 3 yrs</dd>
               </div>
             </dl>
+          </section>
+
+          <section
+            v-if="showNearestReserve && nearestReserve"
+            class="cw-card cw-card-pad reserve-card"
+          >
+            <h2 class="side-title">{{ nearestReserve.name }}</h2>
+            <p>{{ nearestReserve.type }}</p>
+            <strong>{{ nearestReserve.distanceLabel }} from your location</strong>
           </section>
         </aside>
       </section>
