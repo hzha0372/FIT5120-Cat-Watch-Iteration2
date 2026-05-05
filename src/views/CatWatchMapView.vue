@@ -175,6 +175,22 @@ const clearReserveLayer = () => {
   if (reserveLayer.value) reserveLayer.value.clearLayers()
 }
 
+const invalidateMapSize = () => {
+  if (!map.value) return
+  map.value.invalidateSize({ animate: false, pan: false })
+}
+
+const settleMapSize = () => {
+  invalidateMapSize()
+  if (typeof window === 'undefined') return
+  window.requestAnimationFrame(() => {
+    invalidateMapSize()
+  })
+  window.setTimeout(() => {
+    invalidateMapSize()
+  }, 120)
+}
+
 const renderSpecies = async () => {
   await nextTick()
   ensureMap()
@@ -230,8 +246,9 @@ const renderSpecies = async () => {
     bounds.push([homeLat, homeLng])
   }
 
-  map.value.invalidateSize(true)
+  settleMapSize()
   if (bounds.length) map.value.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 })
+  settleMapSize()
 }
 
 const renderNearestReserve = ({ fitToReserve = false } = {}) => {
@@ -312,7 +329,9 @@ const renderNearestReserve = ({ fitToReserve = false } = {}) => {
 const toggleNearestReserve = async () => {
   showNearestReserve.value = !showNearestReserve.value
   await nextTick()
+  settleMapSize()
   renderNearestReserve({ fitToReserve: showNearestReserve.value })
+  settleMapSize()
 }
 
 // The map search resolves a suburb/postcode through the Risk Map feature API, then loads species, schedule, and risk data from the same page JS.
@@ -864,15 +883,19 @@ onUnmounted(() => {
 
 .map-card {
   position: relative;
-  min-height: 600px;
+  height: 730px;
+  min-height: 730px;
   overflow: hidden;
-  display: grid;
+  display: block;
 }
 
 .map-placeholder {
+  height: 100%;
   max-width: 470px;
-  align-self: center;
-  justify-self: center;
+  margin: 0 auto;
+  display: grid;
+  align-content: center;
+  justify-items: center;
   padding: 32px;
   text-align: center;
 }
@@ -909,7 +932,8 @@ onUnmounted(() => {
 }
 
 .leaflet-map {
-  min-height: 600px;
+  height: 100%;
+  min-height: 0;
   width: 100%;
 }
 
@@ -1101,7 +1125,8 @@ onUnmounted(() => {
 
   .map-card,
   .leaflet-map {
-    min-height: 460px;
+    height: 560px;
+    min-height: 560px;
   }
 
   .summary-strip {
