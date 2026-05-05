@@ -13,6 +13,7 @@ import L from 'leaflet'
 const mapEl = ref(null)
 const map = ref(null)
 const speciesLayer = ref(null)
+const reserveLayer = ref(null)
 const loading = ref(false)
 const error = ref('')
 const query = ref('')
@@ -22,6 +23,7 @@ const selectedSuggestion = ref(null)
 const selectedSpecies = ref(null)
 const mapData = ref(null)
 const activeRiskFilter = ref('red')
+const showNearestReserve = ref(false)
 let suggestTimer = null
 let suggestRequestId = 0
 let skipNextSuggestionLookup = false
@@ -44,6 +46,7 @@ const riskCounts = computed(() => {
 const threatenedCount = computed(() => mapData.value?.summary?.threatenedSpecies || 0)
 const totalSpeciesCount = computed(() => riskCounts.value.all)
 const highRiskText = computed(() => `${mapData.value?.summary?.highRiskSpecies || 0} HIGH RISK`)
+const nearestReserve = computed(() => mapData.value?.nearestReserve || null)
 
 const statusColor = {
   red: '#ef4444',
@@ -104,6 +107,35 @@ const suggestionQuery = (item, includePostcode = shouldDisplayPostcode(query.val
   return includePostcode ? `${postcode} ${name}` : name
 }
 
+const escapeHtml = (value) =>
+  String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+
+const getGeometryCentroid = (geometry) => {
+  const coords = []
+  const collect = (value) => {
+    if (!Array.isArray(value)) return
+    if (value.length >= 2 && Number.isFinite(Number(value[0])) && Number.isFinite(Number(value[1]))) {
+      coords.push([Number(value[0]), Number(value[1])])
+      return
+    }
+    value.forEach(collect)
+  }
+
+  collect(geometry?.coordinates)
+  if (!coords.length) return null
+
+  const [sumLng, sumLat] = coords.reduce(
+    (acc, pair) => [acc[0] + pair[0], acc[1] + pair[1]],
+    [0, 0],
+  )
+  return [sumLat / coords.length, sumLng / coords.length]
+}
+
 const chooseSuggestion = (item) => {
   suggestRequestId += 1
   selectedSuggestion.value = item
@@ -132,10 +164,15 @@ const ensureMap = () => {
   }).addTo(map.value)
 
   speciesLayer.value = L.layerGroup().addTo(map.value)
+  reserveLayer.value = L.layerGroup().addTo(map.value)
 }
 
 const clearSpeciesLayer = () => {
   if (speciesLayer.value) speciesLayer.value.clearLayers()
+}
+
+const clearReserveLayer = () => {
+  if (reserveLayer.value) reserveLayer.value.clearLayers()
 }
 
 const renderSpecies = async () => {
@@ -197,6 +234,87 @@ const renderSpecies = async () => {
   if (bounds.length) map.value.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 })
 }
 
+const renderNearestReserve = ({ fitToReserve = false } = {}) => {
+  if (!map.value || !reserveLayer.value) return
+
+  clearReserveLayer()
+  if (!showNearestReserve.value) return
+
+  const reserve = nearestReserve.value
+  if (!reserve?.geometry) return
+
+  const reserveGeoJson = L.geoJSON(reserve.geometry, {
+    style: {
+      color: '#1f66b3',
+      weight: 3,
+      fillColor: '#2f7fcb',
+      fillOpacity: 0.22,
+      dashArray: '7 5',
+    },
+  }).addTo(reserveLayer.value)
+  reserveGeoJson.eachLayer((layer) => {
+    if (typeof layer.bringToBack === 'function') layer.bringToBack()
+  })
+
+  const homeLat = Number(mapData.value?.location?.lat)
+  const homeLng = Number(mapData.value?.location?.lng)
+  const reserveCenter = getGeometryCentroid(reserve.geometry)
+
+  if (reserveCenter) {
+    L.marker(reserveCenter, {
+      interactive: false,
+      icon: L.divIcon({
+        className: 'reserve-name-marker',
+        html: `<div class="reserve-name-chip">${escapeHtml(reserve.name || 'Nearest reserve')}</div>`,
+      }),
+    }).addTo(reserveLayer.value)
+  }
+
+  const closestLat = Number(reserve.closestPoint?.lat)
+  const closestLng = Number(reserve.closestPoint?.lng)
+  const targetPoint =
+    Number.isFinite(closestLat) && Number.isFinite(closestLng)
+      ? [closestLat, closestLng]
+      : reserveCenter
+
+  if (Number.isFinite(homeLat) && Number.isFinite(homeLng) && targetPoint) {
+    L.polyline(
+      [
+        [homeLat, homeLng],
+        targetPoint,
+      ],
+      {
+        color: '#2f80d0',
+        weight: 3,
+        dashArray: '7 5',
+      },
+    ).addTo(reserveLayer.value)
+
+    const midLat = (homeLat + targetPoint[0]) / 2
+    const midLng = (homeLng + targetPoint[1]) / 2
+    L.marker([midLat, midLng], {
+      interactive: false,
+      icon: L.divIcon({
+        className: 'distance-label-marker',
+        html: `<span class="distance-label-text">${escapeHtml(reserve.distanceLabel || 'Unknown')}</span>`,
+      }),
+    }).addTo(reserveLayer.value)
+  }
+
+  if (fitToReserve) {
+    const bounds = reserveGeoJson.getBounds()
+    if (Number.isFinite(homeLat) && Number.isFinite(homeLng)) bounds.extend([homeLat, homeLng])
+    if (targetPoint) bounds.extend(targetPoint)
+    if (bounds.isValid()) map.value.fitBounds(bounds, { padding: [42, 42], maxZoom: 14 })
+  }
+}
+
+const toggleNearestReserve = async () => {
+  showNearestReserve.value = !showNearestReserve.value
+  await nextTick()
+  renderNearestReserve({ fitToReserve: showNearestReserve.value })
+}
+
 // The map search resolves a suburb/postcode through the Risk Map feature API, then loads species, schedule, and risk data from the same page JS.
 const loadMapData = async () => {
   loading.value = true
@@ -243,8 +361,10 @@ const loadMapData = async () => {
 
     mapData.value = payload
     activeRiskFilter.value = 'red'
+    showNearestReserve.value = false
     suggestions.value = []
     await renderSpecies()
+    renderNearestReserve()
   } catch (err) {
     error.value = err?.message || 'Unexpected map error.'
   } finally {
@@ -264,7 +384,10 @@ const setRiskFilter = (level) => {
   activeRiskFilter.value = level
 }
 
-watch(activeRiskFilter, renderSpecies)
+watch(activeRiskFilter, async () => {
+  await renderSpecies()
+  renderNearestReserve()
+})
 
 watch(query, (value) => {
   const text = String(value || '').trim()
@@ -310,6 +433,7 @@ watch(query, (value) => {
 onUnmounted(() => {
   if (suggestTimer) clearTimeout(suggestTimer)
   clearSpeciesLayer()
+  clearReserveLayer()
   if (map.value) {
     map.value.remove()
     map.value = null
@@ -419,6 +543,20 @@ onUnmounted(() => {
             </p>
           </div>
           <div v-show="mapData" ref="mapEl" class="leaflet-map" />
+          <button
+            v-if="mapData"
+            type="button"
+            class="nearest-reserve-btn"
+            :class="{ active: showNearestReserve }"
+            :disabled="!nearestReserve?.geometry"
+            :aria-pressed="showNearestReserve"
+            @click="toggleNearestReserve"
+          >
+            <span class="reserve-toggle" aria-hidden="true">
+              <span />
+            </span>
+            <span>Nearest reserve</span>
+          </button>
         </article>
 
         <aside class="side-stack">
@@ -430,6 +568,15 @@ onUnmounted(() => {
                 <span>{{ item.label }}</span>
               </div>
             </div>
+          </section>
+
+          <section
+            v-if="showNearestReserve && nearestReserve"
+            class="cw-card cw-card-pad reserve-card"
+          >
+            <h2 class="side-title">{{ nearestReserve.name }}</h2>
+            <p>{{ nearestReserve.type }}</p>
+            <strong>{{ nearestReserve.distanceLabel }} from your location</strong>
           </section>
 
           <section v-if="selectedSpecies" class="cw-card cw-card-pad detail-card">
@@ -716,6 +863,7 @@ onUnmounted(() => {
 }
 
 .map-card {
+  position: relative;
   min-height: 600px;
   overflow: hidden;
   display: grid;
@@ -765,6 +913,108 @@ onUnmounted(() => {
   width: 100%;
 }
 
+.nearest-reserve-btn {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  border: 1px solid #96c4ed;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.18);
+  color: #1f66b3;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 900;
+  padding: 0 18px 0 12px;
+  white-space: nowrap;
+}
+
+.nearest-reserve-btn.active {
+  border-color: #1f66b3;
+  background: #e8f2fd;
+  color: #1f66b3;
+}
+
+.nearest-reserve-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.reserve-toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex: 0 0 auto;
+  border: 1px solid #79aee7;
+  border-radius: 999px;
+  background: #dbeafb;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.reserve-toggle span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.28);
+  transition: transform 160ms ease;
+}
+
+.nearest-reserve-btn.active .reserve-toggle {
+  border-color: #1f66b3;
+  background: #1f66b3;
+}
+
+.nearest-reserve-btn.active .reserve-toggle span {
+  transform: translateX(18px);
+}
+
+:global(.reserve-name-marker) {
+  background: transparent;
+  border: 0;
+}
+
+:global(.reserve-name-chip) {
+  display: inline-block;
+  border-radius: 8px;
+  background: #1f66b3;
+  box-shadow: 0 5px 14px rgba(31, 102, 179, 0.24);
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 850;
+  line-height: 1.2;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+:global(.distance-label-marker) {
+  background: transparent;
+  border: 0;
+}
+
+:global(.distance-label-text) {
+  display: inline-block;
+  color: #2d79c6;
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow:
+    0 1px 0 #ffffff,
+    0 0 5px rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+}
+
 .side-stack {
   display: grid;
   gap: 24px;
@@ -803,6 +1053,22 @@ onUnmounted(() => {
   margin: 8px 0 0;
   color: var(--cw-muted);
   font-style: italic;
+}
+
+.reserve-card {
+  border-left: 5px solid #1f66b3;
+}
+
+.reserve-card p {
+  margin: 8px 0 0;
+  color: var(--cw-muted);
+}
+
+.reserve-card strong {
+  display: block;
+  margin-top: 14px;
+  color: #1f66b3;
+  font-size: 1.1rem;
 }
 
 .detail-card dl {
